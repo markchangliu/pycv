@@ -34,7 +34,8 @@ def eval_coco_prec_rec(
     coco_gt: Union[str, os.PathLike, COCO],
     coco_pred_res_p: Union[str, os.PathLike],
     iou_thres_list: List[float],
-    eval_mode: Literal["bbox", "segm"]
+    eval_mode: Literal["bbox", "segm"],
+    dump_fps_fns_dir: Union[str, os.PathLike]
 ) -> None:
     if isinstance(coco_gt, str):
         coco_gt = COCO(coco_gt)
@@ -49,7 +50,9 @@ def eval_coco_prec_rec(
         "num_fns": [],
         "precision": [],
         "recall": [],
-        "avg_tp_iou": []
+        "avg_tp_iou": [],
+        "fps": [],
+        "fns": [],
     }
 
     for iou_thres in iou_thres_list:
@@ -58,6 +61,8 @@ def eval_coco_prec_rec(
         num_fp = 0
         num_fn = 0
         sum_tp_iou = 0
+        fps = []
+        fns = []
 
         for img_id in img_ids:
             img_info = coco_gt.loadImgs(img_id)[0]
@@ -71,10 +76,12 @@ def eval_coco_prec_rec(
 
             if len(pred_anns) == 0:
                 num_fn += len(gt_anns)
+                fns += gt_anns
                 continue
             elif len(gt_anns) == 0:
                 num_fp += len(pred_anns)
                 num_preds += len(pred_anns)
+                fps += pred_anns
                 continue
 
             # compute iou
@@ -103,6 +110,18 @@ def eval_coco_prec_rec(
             num_fp += np.sum(max_ious_pred < iou_thres)
             num_fn += np.sum(max_ious_gt < iou_thres)
             sum_tp_iou += np.sum(max_ious_pred[max_ious_pred >= iou_thres])
+
+            # retrieve fps and fns
+            fp_flags = max_ious_pred < iou_thres # (num_preds, )
+            fn_flags = max_ious_gt < iou_thres # (num_gts, )
+
+            for fp_flag, pred_ann in zip(fp_flags, pred_anns):
+                if fp_flag:
+                    fps.append(pred_ann)
+            for fn_flag, gt_ann in zip(fn_flags, gt_anns):
+                if fn_flag:
+                    fns.append(gt_ann)
+
         
         precision = num_tp / (num_tp + num_fp)
         recall = num_tp / (num_tp + num_fn)
@@ -115,6 +134,8 @@ def eval_coco_prec_rec(
         eval_res["precision"].append(round(precision, 3))
         eval_res["recall"].append(round(recall, 3))
         eval_res["avg_tp_iou"].append(round(avg_tp_iou, 3))
+        eval_res["fns"] += fns
+        eval_res["fps"] += fps
 
     # compute overall res
     overall_res = {
@@ -134,3 +155,13 @@ def eval_coco_prec_rec(
     print("avg_precision:", overall_res["avg_precision"])
     print("avg_recall:", overall_res["avg_recall"])
     print()
+
+    # dump fns and fps
+    dump_fps_p = os.path.join(dump_fps_fns_dir, "fps.json")
+    dump_fns_p = os.path.join(dump_fps_fns_dir, "fns.json")
+
+    with open(dump_fps_p, "w") as f:
+        json.dump(eval_res["fps"], f)
+    
+    with open(dump_fns_p, "w") as f:
+        json.dump(eval_res["fns"], f)
