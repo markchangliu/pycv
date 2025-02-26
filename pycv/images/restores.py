@@ -13,11 +13,11 @@ def restore_resize_pad_img(
     先将缩放比例较长的一边 unpad，再按照较小的缩放比例缩放图片。\n
 
     Args
-    - `new_img`: `np.ndarray`, shape `(new_h, new_w, 3)`
+    - `new_img`: `np.ndarray`, shape `(new_h, new_w, channels)`
     - `org_hw`: `Tuple[int, int]`, `[org_h, org_w]`
 
     Retuns
-    - `org_img`: `np.ndarray`, shape `(org_h, org_w, 3)`
+    - `org_img`: `np.ndarray`, shape `(org_h, org_w, channels)`
     """
     new_h, new_w = new_img.shape[:2]
     org_h, org_w = org_hw

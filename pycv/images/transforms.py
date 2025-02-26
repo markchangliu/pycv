@@ -13,11 +13,11 @@ def resize_pad_img(
     先将图片按照较小缩放比缩放，再对未达到目标尺寸的一边进行0值中心填充。\n
 
     Args
-    - `img`: `np.ndarray`, shape `(img_h, img_w, 3)`
+    - `img`: `np.ndarray`, shape `(img_h, img_w, channels)`
     - `new_hw`: `Tuple[int, int]`, `[new_h, new_w]`
 
     Retuns
-    - `new_img`: `np.ndarray`, shape `(new_h, new_w, 3)`
+    - `new_img`: `np.ndarray`, shape `(new_h, new_w, channels)`
     """
     img_h, img_w = img.shape[:2]
     new_h, new_w = new_hw
