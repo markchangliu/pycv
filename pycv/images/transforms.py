@@ -46,3 +46,32 @@ def resize_pad_img(
     )
 
     return new_img
+
+
+def crop_img(
+    img: np.ndarray,
+    crop_x1y1x2y2: Tuple[int, int, int, int]
+) -> np.ndarray:
+    x1, y1, x2, y2 = crop_x1y1x2y2
+    crop_img = img[y1:y2, x1:x2, :]
+    return crop_img
+
+
+def rotate_img(
+    img: np.ndarray,
+    angle: int,
+) -> np.ndarray:
+    """
+    Args
+    - `img`: `np.ndarray`, shape `(img_h, img_w, 3)`
+    - `angle`: `int`, anti-clockwise >0, clockwise <0
+
+    Retuns
+    - `new_img`: `np.ndarray`, shape `(new_h, new_w, 3)`
+    """
+    img_h, img_w = img.shape[:2]
+    ctr_xy = (img_w // 2, img_h // 2)
+    rotate_mat = cv2.getRotationMatrix2D(ctr_xy, angle, 1)
+    new_img = cv2.warpAffine(img, rotate_mat, (img_w, img_h))
+
+    return new_img
