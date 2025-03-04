@@ -7,7 +7,7 @@ import numpy as np
 from pycocotools.coco import COCO
 
 from pycv.structures import DetInsts, SegmInsts
-from pycv.labels.convert.insts import insts2labelme
+from pycv.labels.insts import insts2labelme
 
 
 def coco2labelme(
