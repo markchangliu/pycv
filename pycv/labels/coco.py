@@ -2,7 +2,7 @@ import os
 import json
 import shutil
 from pathlib import Path
-from typing import Union, Literal, List, Tuple, Optional
+from typing import Union, Literal, List, Tuple, Dict
 
 import numpy as np
 from pycocotools.coco import COCO
@@ -228,3 +228,43 @@ def load_coco_dt(
     }
 
     return dt_id_info_dict
+
+
+def get_anns_of_img(
+    ann_id_info_dict: Dict[int, dict],
+    img_id: int,
+) -> List[dict]:
+    """
+    Args
+    - `ann_id_info_dict`: `Dict[int, dict]`, info keys `id`, 
+    `iscrowd`, `image_id`, `area`, `bbox`, `segmentation`, `category_id`, `ann_tags`
+    - `img_id`: int
+
+    Returns
+    - `anns_of_img`: `List[dict]`
+    """
+    anns_of_img = [
+        v for v in ann_id_info_dict.values() if v["image_id"] == img_id
+    ]
+
+    return anns_of_img
+
+
+def get_dts_of_img(
+    dt_id_info_dict: Dict[int, dict],
+    img_id: int,
+) -> List[dict]:
+    """
+    Args
+    - `dt_id_info_dict`: `Dict[int, dict]`, info keys `image_id`, 
+    `category_id`, `bbox`, `segmentation`, `score`
+    - `img_id`: int
+
+    Returns
+    - `dts_of_img`: `List[dict]`
+    """
+    dts_of_img = [
+        v for v in dt_id_info_dict.values() if v["image_id"] == img_id
+    ]
+
+    return dts_of_img

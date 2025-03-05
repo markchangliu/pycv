@@ -4,8 +4,10 @@ from typing import Union, List, Tuple, Literal
 import copy
 import numpy as np
 import pycocotools.mask as pycocomask
-from pycocotools.coco import COCO
-from pycocotools.cocoeval import COCOeval
+
+from pycv.labels.coco import (
+    load_coco_dt, load_coco_gt, get_anns_of_img, get_dts_of_img
+)
 
 
 def assign_gt_to_dt(
@@ -88,39 +90,38 @@ def get_iou_segm(
     return iou
 
 
-def get_tp_fn(
-    gt: np.ndarray,
-    dt: np.ndarray,
-    iou_thres: float
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    根据iou判断dt为TP，gt是否为FN。dt和gt为同一类别。
-
-    Args
-    - `gt`: `Array[int]`, shape `(num_gt, 4)`, `x1y1wh`
-    - `dt`: `Array[int]`, shape `(num_dt, 4)`, `x1y1wh`
-    - `iou_thres`: `float`
-
-    Returns
-    - `tp`: `Array[bool]`, shape `(num_dt, )`
-    - `fn`: `Array[bool]`, shape `(num_gt, )`
-    """
-    iou_mat = get_iou_bbox(gt, dt)
-    dt_gt_ids, dt_labels = assign_gt_to_dt(iou_mat, iou_thres)
-
-    tp = np.empty(dt.shape, np.bool_)
-    fn = np.empty(gt.shape, np.bool_)
-
-
-
-
-def get_mAP_bbox(
+def get_mAP_prec_rec(
     gt_p: Union[str, os.PathLike],
     dt_p: Union[str, os.PathLike],
     iou_thres: List[float],
-    tags: List[str],
-    categories: List[int]
+    category_ids: List[int],
+    ann_tags: List[str],
+    mode: Literal["bbox", "segm"],
+    export_gt_eval_res_p: Union[str, os.PathLike],
+    export_dt_eval_res_p: Union[str, os.PathLike],
 ) -> None:
-    coco_gt = COCO(gt_p)
-    coco_dt = coco_gt.loadRes(dt_p)
+    imgs, categories, gts = load_coco_gt(
+        gt_p, category_ids, ann_tags
+    )
+    dts = load_coco_dt(dt_p, category_ids)
 
+    # 将dts按照score从大到小排序
+    dts: List[dict] = list(dts.values())
+    dts.sort(key=lambda e: e["score"], reverse = True)
+
+    for thres in iou_thres:
+        # 记录每个dt是否为tp，gt是否有dt匹配
+        dt_labels = np.empty((len(dts), ), dtype=np.uint8)
+        gt_labels = np.zeros(len(gts.values()), dtype=np.uint8)
+
+        for dt in dts:
+            img_id = dt["image_id"]
+            gts_of_img = get_anns_of_img(gts, img_id)
+
+            if mode == "bbox":
+                dt_bbox = np.asarray(dt["bbox"]).reshape(-1, 4)
+                gt_bboxes = [gt["bbox"] for gt in gts_of_img]
+                gt_bboxes = np.asarray(gt_bboxes).reshape(-1, 4)
+                iou = get_iou_bbox(gt_bboxes, dt_bbox)
+            elif mode == "segm":
+                dt_
