@@ -11,7 +11,7 @@ from pycocotools.cocoeval import COCOeval
 def assign_gt_to_dt(
     score_mat: np.ndarray,
     thres: float
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     为dt匹配gt，参考：
     https://github.com/facebookresearch/detectron2/blob/main/detectron2/modeling/matcher.py
@@ -48,10 +48,10 @@ def assign_gt_to_dt(
     dt_labels[max_scores_dt>thres] = True
 
     # 将匹配到dt的gt label设为True
-    max_scores_dt_ids = np.argmax(score_mat, axis=0)
-    max_scores_gt = score_mat[, ]
+    max_scores_gt = np.max(score_mat, axis=0)
+    gt_labels = max_scores_gt > thres
     
-    return dt_gt_ids, dt_labels
+    return dt_gt_ids, dt_labels, gt_labels
 
 
 def get_iou_bbox(
