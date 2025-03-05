@@ -146,7 +146,7 @@ def load_coco_gt(
     coco_gt_p: Union[str, os.PathLike],
     category_ids: Union[Literal["all"], List[str]],
     ann_tags: Union[Literal["all"], List[str]]
-) -> Tuple[dict, dict, dict]:
+) -> Tuple[List[dict], List[dict], List[dict]]:
     """
     Args
     - `coco_gt_p`: `Union[str, os.PathLike]`
@@ -156,37 +156,33 @@ def load_coco_gt(
     `"all"`表示所有
 
     Returns
-    - `img_id_info_dict`: `Dict[int, dict]`
-        - info keys `height`, `width`, `id`, `file_name`
-    - `category_id_info_dict`: `Dict[int, dict]`
-        - info keys `id`, `name`
-    - `ann_id_info_dict`: `Dict[int, dict]`
-        - info keys `id`, `iscrowd`, `image_id`, `area`, `bbox`, 
-        `segmentation`, `category_id`, `ann_tags`
+    - `img_infos`: `List[dict]`, info keys `height`, `width`, `id`, `file_name`
+    - `category_infos`: `List[dict]`, info keys `id`, `name`
+    - `ann_infos`: `List[dict]`, keys `id`, `iscrowd`, `image_id`, `area`, `bbox`, 
+    `segmentation`, `category_id`, `ann_tags`
     """
     with open(coco_gt_p, "r") as f:
         coco_gt = json.load(f)
 
-    imgs: List[dict] = coco_gt["images"]
-    categories: List[dict] = coco_gt["categories"]
-    anns: List[dict] = coco_gt["annotations"]
+    img_infos: List[dict] = coco_gt["images"]
+    category_infos: List[dict] = coco_gt["categories"]
+    ann_infos: List[dict] = coco_gt["annotations"]
 
-    if isinstance(category_ids, list):
-        categories = [c for c in categories if c["id"] in category_ids]
-    elif isinstance(category_ids, str) and category_ids == "all":
-        category_ids = [c["id"] for c in categories]
-    
     # 过滤掉不要的category_id
-    img_id_info_dict = {i["id"]: i for i in imgs}
-    category_id_info_dict = {c["id"]: c for c in categories if c["id"] in category_ids}
-    ann_id_info_dict = {a["id"]: a for a in anns if a["category_id"] in category_ids}
+    if isinstance(category_ids, list):
+        category_infos = [c for c in category_infos if c["id"] in category_ids]
+    elif isinstance(category_ids, str) and category_ids == "all":
+        category_ids = [c["id"] for c in category_infos]
+    
+    ann_infos = [a for a in ann_infos if a["category_id"] in category_ids]
 
     if isinstance(ann_tags, str) and ann_tags == "all":
-        return img_id_info_dict, category_id_info_dict, category_id_info_dict
+        return img_infos, category_infos, ann_infos
     
     # 过滤掉不要的tag
-    for ann_id, ann_dict in ann_id_info_dict.items():
-        ann_tags = ann_dict["tags"]
+    ann_infos_ = []
+    for ann_info in ann_infos:
+        ann_tags = ann_info["tags"]
         exclude_flag = True
 
         for t in ann_tags:
@@ -194,16 +190,19 @@ def load_coco_gt(
                 exclude_flag = False
                 break
         
-        if exclude_flag:
-            del ann_id_info_dict[ann_id]
+        if not exclude_flag:
+            ann_infos_.append(ann_info)
+    
+    ann_infos = ann_infos_
+    del ann_infos_
 
-    return img_id_info_dict, category_id_info_dict, category_id_info_dict
+    return img_infos, category_infos, ann_infos
 
 
 def load_coco_dt(
     coco_dt_p: Union[str, os.PathLike],
     category_ids: Union[Literal["all"], List[str]],
-) -> dict:
+) -> List[dict]:
     """
     Args
     - `coco_dt_p`: `Union[str, os.PathLike]`
@@ -211,41 +210,35 @@ def load_coco_dt(
     `"all"`表示所有
 
     Returns
-    - `dt_id_info_dict`: `Dict[int, dict]`
-        - info keys `image_id`, `category_id`, `bbox`, 
-        `segmentation`, `score`
+    - `dt_infos`: `List[dict]`, info keys `image_id`, `category_id`, `bbox`, 
+    `segmentation`, `score`
     """
     with open(coco_dt_p, "r") as f:
         coco_dt: List[dict] = json.load(f)
     
     if isinstance(category_ids, str) and category_ids == "all":
-        dt_id_info_dict = {k: v for k, v in enumerate(coco_dt)}
-        return dt_id_info_dict
+        return coco_dt
     
     # 过滤掉不要的category_id
-    dt_id_info_dict = {
-        k: v for k, v in enumerate(coco_dt) if v["category_id"] in category_ids
-    }
+    coco_dt = [d for d in coco_dt if d["category_id"] in category_ids]
 
-    return dt_id_info_dict
+    return coco_dt
 
 
 def get_anns_of_img(
-    ann_id_info_dict: Dict[int, dict],
+    ann_infos: List[dict],
     img_id: int,
 ) -> List[dict]:
     """
     Args
-    - `ann_id_info_dict`: `Dict[int, dict]`, info keys `id`, 
-    `iscrowd`, `image_id`, `area`, `bbox`, `segmentation`, `category_id`, `ann_tags`
+    - `ann_infos`: `List[dict]`, info keys `id`, `iscrowd`, `image_id`, 
+    `area`, `bbox`, `segmentation`, `category_id`, `ann_tags`
     - `img_id`: int
 
     Returns
     - `anns_of_img`: `List[dict]`
     """
-    anns_of_img = [
-        v for v in ann_id_info_dict.values() if v["image_id"] == img_id
-    ]
+    anns_of_img = [a for a in ann_infos if a["image_id"] == img_id]
 
     return anns_of_img
 
