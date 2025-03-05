@@ -1,5 +1,5 @@
 import os
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, Literal
 
 import copy
 import numpy as np
@@ -66,7 +66,25 @@ def get_iou_bbox(
     Returns
     - `iou_mat`: `Array[float]`, shape `(num_dt, num_gt)`
     """
-    iou = pycocomask.iou(dt, gt, [False] * len(dt))
+    iou = pycocomask.iou(dt, gt, [False] * len(gt))
+    return iou
+
+
+def get_iou_segm(
+    gt: np.ndarray,
+    dt: np.ndarray
+) -> np.ndarray:
+    """
+    Args
+    - `gt`: `Array[uint8]`, 0/1, shape `(num_gt, img_h, img_w)`
+    - `dt`: `Array[uint8]`, 0/1, shape `(num_dt, img_h, img_w)`
+
+    Returns
+    - `iou`: `Array[float]`, shape `(num_dt, num_gt)`
+    """
+    gt = pycocomask.encode(gt)
+    dt = pycocomask.encode(dt)
+    iou = pycocomask.iou(dt, gt, [False] * len(gt))
     return iou
 
 
