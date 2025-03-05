@@ -1,7 +1,8 @@
 import os
+import json
 import shutil
 from pathlib import Path
-from typing import Union, Literal
+from typing import Union, Literal, List, Tuple, Optional
 
 import numpy as np
 from pycocotools.coco import COCO
@@ -139,3 +140,91 @@ def coco2yolo(
                     bbox_txt = " ".join(bbox)
                     label_txt = f"{cat_id} {bbox_txt}\n"
                     f.write(label_txt)
+
+
+def load_coco_gt(
+    coco_gt_p: Union[str, os.PathLike],
+    category_ids: Union[Literal["all"], List[str]],
+    ann_tags: Union[Literal["all"], List[str]]
+) -> Tuple[dict, dict, dict]:
+    """
+    Args
+    - `coco_gt_p`: `Union[str, os.PathLike]`
+    - `category_ids`: `Union[Literal["all"], List[int]]`, 要包含的category id, 
+    `"all"`表示所有
+    - `ann_tags`: `Union[Literal["all"], List[str]]`, 要包含的ann tag, 
+    `"all"`表示所有
+
+    Returns
+    - `img_id_info_dict`: `Dict[int, dict]`
+        - info keys `height`, `width`, `id`, `file_name`
+    - `category_id_info_dict`: `Dict[int, dict]`
+        - info keys `id`, `name`
+    - `ann_id_info_dict`: `Dict[int, dict]`
+        - info keys `id`, `iscrowd`, `image_id`, `area`, `bbox`, 
+        `segmentation`, `category_id`, `ann_tags`
+    """
+    with open(coco_gt_p, "r") as f:
+        coco_gt = json.load(f)
+
+    imgs: List[dict] = coco_gt["images"]
+    categories: List[dict] = coco_gt["categories"]
+    anns: List[dict] = coco_gt["annotations"]
+
+    if isinstance(category_ids, list):
+        categories = [c for c in categories if c["id"] in category_ids]
+    elif isinstance(category_ids, str) and category_ids == "all":
+        category_ids = [c["id"] for c in categories]
+    
+    # 过滤掉不要的category_id
+    img_id_info_dict = {i["id"]: i for i in imgs}
+    category_id_info_dict = {c["id"]: c for c in categories if c["id"] in category_ids}
+    ann_id_info_dict = {a["id"]: a for a in anns if a["category_id"] in category_ids}
+
+    if isinstance(ann_tags, str) and ann_tags == "all":
+        return img_id_info_dict, category_id_info_dict, category_id_info_dict
+    
+    # 过滤掉不要的tag
+    for ann_id, ann_dict in ann_id_info_dict.items():
+        ann_tags = ann_dict["tags"]
+        exclude_flag = True
+
+        for t in ann_tags:
+            if t in ann_tags:
+                exclude_flag = False
+                break
+        
+        if exclude_flag:
+            del ann_id_info_dict[ann_id]
+
+    return img_id_info_dict, category_id_info_dict, category_id_info_dict
+
+
+def load_coco_dt(
+    coco_dt_p: Union[str, os.PathLike],
+    category_ids: Union[Literal["all"], List[str]],
+) -> dict:
+    """
+    Args
+    - `coco_dt_p`: `Union[str, os.PathLike]`
+    - `category_ids`: `Union[Literal["all"], List[int]]`, 要包含的category id, 
+    `"all"`表示所有
+
+    Returns
+    - `dt_id_info_dict`: `Dict[int, dict]`
+        - info keys `image_id`, `category_id`, `bbox`, 
+        `segmentation`, `score`
+    """
+    with open(coco_dt_p, "r") as f:
+        coco_dt: List[dict] = json.load(f)
+    
+    if isinstance(category_ids, str) and category_ids == "all":
+        dt_id_info_dict = {k: v for k, v in enumerate(coco_dt)}
+        return dt_id_info_dict
+    
+    # 过滤掉不要的category_id
+    dt_id_info_dict = {
+        k: v for k, v in enumerate(coco_dt) if v["category_id"] in category_ids
+    }
+
+    return dt_id_info_dict
