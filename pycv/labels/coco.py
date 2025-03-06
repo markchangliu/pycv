@@ -5,10 +5,12 @@ from pathlib import Path
 from typing import Union, Literal, List, Tuple, Dict
 
 import numpy as np
+import pycocotools.mask as pycocomask
 from pycocotools.coco import COCO
 
 from pycv.structures import DetInsts, SegmInsts
 from pycv.labels.insts import insts2labelme
+from pycv.structures.mask import polyscoco2masks, rles2masks, center_pad_masks
 
 
 def coco2labelme(
@@ -242,22 +244,127 @@ def get_anns_of_img(
 
     return anns_of_img
 
+def get_anns_of_category(
+    ann_infos: List[dict],
+    category_id: int
+) -> List[dict]:
+    """
+    Args
+    - `ann_infos`: `List[dict]`, info keys `id`, `iscrowd`, `image_id`, 
+    `area`, `bbox`, `segmentation`, `category_id`, `ann_tags`
+    - `category_id`: int
+
+    Returns
+    - `anns_of_category`: `List[dict]`
+    """
+    anns_of_category = [a for a in ann_infos if a["category_id"] == category_id]
+    return anns_of_category
+
 
 def get_dts_of_img(
-    dt_id_info_dict: Dict[int, dict],
+    dt_infos: List[dict],
     img_id: int,
 ) -> List[dict]:
     """
     Args
-    - `dt_id_info_dict`: `Dict[int, dict]`, info keys `image_id`, 
-    `category_id`, `bbox`, `segmentation`, `score`
+    - `dt_infos`: `List[dict]`, info keys `image_id`, `category_id`, 
+    `bbox`, `segmentation`, `score`
     - `img_id`: int
 
     Returns
     - `dts_of_img`: `List[dict]`
     """
-    dts_of_img = [
-        v for v in dt_id_info_dict.values() if v["image_id"] == img_id
-    ]
+    dts_of_img = [v for v in dt_infos if v["image_id"] == img_id]
 
     return dts_of_img
+
+
+def get_dts_of_category(
+    dt_infos: List[dict],
+    category_id: int,
+) -> List[dict]:
+    """
+    Args
+    - `dt_infos`: `List[dict]`, info keys `image_id`, `category_id`, 
+    `bbox`, `segmentation`, `score`
+    - `category_id`: int
+
+    Returns
+    - `dts_of_category`: `List[dict]`
+    """
+    dts_of_category = [v for v in dt_infos if v["image_id"] == category_id]
+    return dts_of_category
+
+
+def get_mAP_prec_rec(
+    gt_p: Union[str, os.PathLike],
+    dt_p: Union[str, os.PathLike],
+    iou_thres: float,
+    category_ids: Union[List[int], Literal["all"]],
+    ann_tags: Union[List[str], Literal["all"]],
+    mode: Literal["bbox", "segm"],
+    export_gt_eval_res_p: Union[str, os.PathLike],
+    export_dt_eval_res_p: Union[str, os.PathLike],
+) -> None:
+    img_infos, category_infos, gt_infos = load_coco_gt(
+        gt_p, category_ids, ann_tags
+    )
+    dt_infos = load_coco_dt(dt_p)
+
+    if isinstance(category_ids, str) and category_ids == "all":
+        category_ids = [c["id"] for c in category_infos]
+    
+    img_hws = [(i["height"], i["width"]) for i in img_infos]
+    img_hws = np.asarray(img_hws, dtype=np.int_).reshape(-1, 2)
+
+    # 找到最大的图片尺寸
+    max_h = np.max(img_hws[:, 0]).item()
+    max_w = np.max(img_hws[:, 1]).item()
+
+    gt_category_ids = np.asarray([g["category_id"] for g in gt_infos])
+    gt_img_ids = np.asarray([g["image_id"] for g in gt_infos])
+    gt_img_hws = np.asarray([img_hws[g] for g in gt_img_ids]).reshape(-1, 2)
+
+    dt_category_ids = np.asarray([d["category_id"] for d in dt_infos])
+    dt_img_ids = np.asarray([d["image_id"] for d in dt_infos])
+    dt_scores = np.asarray([d["score"] for d in dt_infos])
+    dt_img_hws = np.asarray([img_hws[d] for d in dt_img_ids]).reshape(-1, 2)
+
+    if mode == "bbox":
+        gt_insts = np.asarray(g["bbox"] for g in gt_infos)
+        dt_insts = np.asarray(d["bbox"] for d in dt_infos)
+    elif mode == "segm":
+        # 将polygon和rle转化为mask
+        # 将mask统一pad为最大尺寸
+        gt_insts = [g["segmentation"] for g in gt_infos]
+        for i in range(len(gt_insts)):
+            img_h, img_w = gt_img_hws[i]
+            gt_poly = gt_insts[i]
+            gt_mask = polyscoco2masks(gt_poly, (img_h, img_w), True)
+            gt_insts[i] = center_pad_masks(gt_mask, (max_h, max_w))
+
+        dt_insts = [d["segmentation"] for d in dt_insts]
+        for i in range(len(dt_insts)):
+            img_h, img_w = dt_img_hws[i]
+            dt_rle = dt_insts[i]
+            dt_mask = rles2masks(dt_rle)
+            dt_insts[i] = center_pad_masks(dt_mask, (max_h, max_w))
+
+        gt_insts = np.asarray(gt_insts)
+        dt_insts = np.asarray(dt_insts)
+    
+    # 计算每个category的mAP
+    for category_id in category_ids:
+        gt_indice = gt_category_ids == category_id
+        gt_category_ids_cati = gt_category_ids[gt_indice]
+        gt_img_ids_cati = gt_img_ids[gt_indice]
+        gt_img_hws_cati = gt_img_hws[gt_indice]
+        gt_insts_cati = gt_insts[gt_indice]
+
+        dt_indice = dt_category_ids == category_id
+        dt_category_ids_cati = dt_category_ids[dt_indice]
+        dt_img_ids_cati = dt_img_ids[dt_indice]
+        dt_scores_cati = dt_scores[dt_indice]
+        dt_insts_cati = dt_insts[dt_indice]
+
+        

@@ -5,10 +5,6 @@ import copy
 import numpy as np
 import pycocotools.mask as pycocomask
 
-from pycv.labels.coco import (
-    load_coco_dt, load_coco_gt, get_anns_of_img, get_dts_of_img
-)
-
 
 def assign_gt_to_dt(
     score_mat: np.ndarray,
@@ -90,38 +86,69 @@ def get_iou_segm(
     return iou
 
 
-def get_mAP_prec_rec(
-    gt_p: Union[str, os.PathLike],
-    dt_p: Union[str, os.PathLike],
-    iou_thres: List[float],
-    category_ids: List[int],
-    ann_tags: List[str],
-    mode: Literal["bbox", "segm"],
-    export_gt_eval_res_p: Union[str, os.PathLike],
-    export_dt_eval_res_p: Union[str, os.PathLike],
-) -> None:
-    imgs, categories, gts = load_coco_gt(
-        gt_p, category_ids, ann_tags
-    )
-    dts = load_coco_dt(dt_p, category_ids)
+def get_AP_fp_fn(
+    gt_insts: np.ndarray,
+    gt_img_ids: np.ndarray,
+    gt_img_hws: np.ndarray,
+    dt_insts: np.ndarray,
+    dt_img_ids: np.ndarray,
+    dt_img_hws: np.ndarray,
+    dt_scores: np.ndarray,
+    iou_thres: float
+) -> Tuple[float, np.ndarray, np.ndarray]:
+    """
+    确定每个dt_insts是否为fp, 每个gt_insts是否为fn, 并计算AP.
 
-    # 将dts按照score从大到小排序
-    dts: List[dict] = list(dts.values())
-    dts.sort(key=lambda e: e["score"], reverse = True)
+    Args
+    - `gt_insts`: bbox或者segm
+        - bbox: `Array[int]`, shape `(num_gt_insts, 4)`, xywh
+        - segm: `Array[uint8]`, shape `(num_gt_insts, max_h, max_w)`, 0/1, 
+        pad至最大图片尺寸, 需要用`gt_img_hws`还原
+    - `gt_img_ids`: `Array[int]`, shape `(num_gt_insts, )`
+    - `gt_img_hws`: `Array[int]`, shape `(num_gt_insts, 2)`, 原图大小, 用于还原mask
+    - `dt_insts`: bbox或者segm
+        - bbox: `Array[int]`, shape `(num_dt_insts, 4)`, xywh
+        - segm: `Array[uint8]`, shape `(num_dt_insts, max_h, max_w)`, 0/1, 
+        pad至最大图片尺寸, 需要用`dt_img_hws`还原
+    - `dt_img_ids`: `Array[int]`, shape `(num_dt_insts, )`
+    - `dt_img_hws`: `Array[int]`, shape `(num_dt_insts, 2)`, 原图大小, 用于还原mask
+    - `dt_scores`: `Array[float]`, shape `(num_dt_insts, )`
+    - `iou_thres`: `float`
 
-    for thres in iou_thres:
-        # 记录每个dt是否为tp，gt是否有dt匹配
-        dt_labels = np.empty((len(dts), ), dtype=np.uint8)
-        gt_labels = np.zeros(len(gts.values()), dtype=np.uint8)
+    Returns
+    - `AP`: `float`
+    - `dt_gt_ids`: `Array[uint]`, 匹配的gt idx
+    - `dt_labels`: `Array[bool]`, shape `(num_dt_insts, )`, 是否为tp
+    - `gt_labels`: `Array[bool]`, shape `(num_gt_insts, )`, 是否为fn
+    """
+    dt_gt_ids = np.empty(len(dt_insts), dtype=np.uint8)
+    dt_labels = np.empty(len(dt_insts), dtype=np.uint8)
+    gt_labels = np.empty(len(gt_insts), dtype=np.uint8)
+    img_ids = set(gt_img_ids) | set(dt_img_ids)
 
-        for dt in dts:
-            img_id = dt["image_id"]
-            gts_of_img = get_anns_of_img(gts, img_id)
+    if len(gt_insts.shape) == 2:
+        mode = "bbox"
+    elif len(gt_insts) == 3:
+        mode = "segm"
 
-            if mode == "bbox":
-                dt_bbox = np.asarray(dt["bbox"]).reshape(-1, 4)
-                gt_bboxes = [gt["bbox"] for gt in gts_of_img]
-                gt_bboxes = np.asarray(gt_bboxes).reshape(-1, 4)
-                iou = get_iou_bbox(gt_bboxes, dt_bbox)
-            elif mode == "segm":
-                dt_
+    for img_id in img_ids:
+        gt_indice = gt_img_ids == img_id
+        gt_insts_imgi = gt_insts[gt_indice]
+
+        dt_indice = dt_img_ids == img_id
+        dt_scores_imgi = dt_scores[dt_indice]
+        dt_insts_imgi = dt_insts[dt_indice]
+
+        img_h, img_w = gt_img_hws[gt_indice][0].tolist()
+
+        if mode == "bbox":
+            iou = get_iou_bbox(gt_insts_imgi, dt_insts_imgi)
+        else:
+            iou = get_iou_segm(gt_insts_imgi, dt_insts_imgi)
+        
+        dt_gt_ids_imgi, dt_labels_imgi, gt_labels_imgi = assign_gt_to_dt(
+            iou, iou_thres
+        )
+
+        dt_gt_ids[dt_indice] = dt_gt_ids_imgi
+        
