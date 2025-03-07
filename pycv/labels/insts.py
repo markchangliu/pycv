@@ -5,7 +5,7 @@ from typing import Union, Dict, Tuple
 
 import numpy as np
 
-from pycv.structures import DetInsts, SegmInsts, bitmask_to_polygon
+from pycv.structures_bkp import DetInsts, SegmInsts, bitmask_to_polygon
 
 
 def insts2labelme(

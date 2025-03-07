@@ -8,7 +8,7 @@ import numpy as np
 import pycocotools.mask as pycocomask
 from pycocotools.coco import COCO
 
-from pycv.structures import DetInsts, SegmInsts
+from pycv.structures_bkp import DetInsts, SegmInsts
 from pycv.labels.insts import insts2labelme
 from pycv.structures.mask import polyscoco2masks, rles2masks, center_pad_masks
 
