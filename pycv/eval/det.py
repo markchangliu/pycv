@@ -140,35 +140,35 @@ def get_AP_fp_fn(
     dt_img_hws: np.ndarray,
     dt_scores: np.ndarray,
     iou_thres: float
-) -> Tuple[float, np.ndarray, np.ndarray]:
+) -> Tuple[Tuple[float, float, float], np.ndarray, np.ndarray]:
     """
     确定每个dt_insts是否为fp, 每个gt_insts是否为fn, 并计算AP.
 
     Args
     - `gt_insts`: bbox或者segm
-        - bbox: `Array[int]`, shape `(num_gt_insts, 4)`, xywh
-        - segm: `Array[uint8]`, shape `(num_gt_insts, max_h, max_w)`, 0/1, 
+        - bbox: `Array[int]`, shape `(num_gt, 4)`, xywh
+        - segm: `Array[uint8]`, shape `(num_gt, max_h, max_w)`, 0/1, 
         pad至最大图片尺寸, 需要用`gt_img_hws`还原
-    - `gt_img_ids`: `Array[int]`, shape `(num_gt_insts, )`
-    - `gt_img_hws`: `Array[int]`, shape `(num_gt_insts, 2)`, 原图大小, 用于还原mask
+    - `gt_img_ids`: `Array[int]`, shape `(num_gt, )`
+    - `gt_img_hws`: `Array[int]`, shape `(num_gt, 2)`, 原图大小, 用于还原mask
     - `dt_insts`: bbox或者segm
-        - bbox: `Array[int]`, shape `(num_dt_insts, 4)`, xywh
-        - segm: `Array[uint8]`, shape `(num_dt_insts, max_h, max_w)`, 0/1, 
+        - bbox: `Array[int]`, shape `(num_dt, 4)`, xywh
+        - segm: `Array[uint8]`, shape `(num_dt, max_h, max_w)`, 0/1, 
         pad至最大图片尺寸, 需要用`dt_img_hws`还原
-    - `dt_img_ids`: `Array[int]`, shape `(num_dt_insts, )`
-    - `dt_img_hws`: `Array[int]`, shape `(num_dt_insts, 2)`, 原图大小, 用于还原mask
-    - `dt_scores`: `Array[float]`, shape `(num_dt_insts, )`
+    - `dt_img_ids`: `Array[int]`, shape `(num_dt, )`
+    - `dt_img_hws`: `Array[int]`, shape `(num_dt, 2)`, 原图大小, 用于还原mask
+    - `dt_scores`: `Array[float]`, shape `(num_dt, )`
     - `iou_thres`: `float`
 
     Returns
-    - `AP`: `float`
-    - `dt_gt_ids`: `Array[uint]`, 匹配的gt idx
-    - `dt_labels`: `Array[bool]`, shape `(num_dt_insts, )`, 是否为tp
-    - `gt_labels`: `Array[bool]`, shape `(num_gt_insts, )`, 是否为fn
+    - `metrics`: `Tuple[float, float, float]`, `[AP, prec, rec]`
+    - `dt_gt_ids`: `Array[uint]`, 匹配的gt id
+    - `dt_tp_flags`: `Array[bool]`, shape `(num_dt, )`
+    - `gt_fn_flags`: `Array[bool]`, shape `(num_gt, )`,
     """
     dt_gt_ids = np.empty(len(dt_insts), dtype=np.uint8)
-    dt_labels = np.empty(len(dt_insts), dtype=np.uint8)
-    gt_labels = np.empty(len(gt_insts), dtype=np.uint8)
+    dt_tp_flags = np.empty(len(dt_insts), dtype=np.uint8)
+    gt_fn_flags = np.empty(len(gt_insts), dtype=np.uint8)
     img_ids = set(gt_img_ids) | set(dt_img_ids)
 
     if len(gt_insts.shape) == 2:
@@ -182,7 +182,6 @@ def get_AP_fp_fn(
         gt_insts_imgi = gt_insts[gt_indice_imgi]
 
         dt_indice_imgi = dt_img_ids == img_id
-        dt_scores_imgi = dt_scores[dt_indice_imgi]
         dt_insts_imgi = dt_insts[dt_indice_imgi]
 
         img_h, img_w = gt_img_hws[dt_indice_imgi][0].tolist()
@@ -192,23 +191,34 @@ def get_AP_fp_fn(
         else:
             iou = get_iou_segm(gt_insts_imgi, dt_insts_imgi)
         
-        dt_gt_ids_imgi, dt_labels_imgi, gt_labels_imgi = assign_gt_to_dt(
+        dt_gt_ids_imgi, dt_tp_flags_imgi, gt_fn_flags_imgi = assign_gt_to_dt(
             iou, iou_thres, True
         )
 
         dt_gt_ids[dt_indice_imgi] = dt_gt_ids_imgi
-        dt_labels[dt_indice_imgi] = dt_labels_imgi
-        gt_labels[gt_indice_imgi] = gt_labels_imgi
-
-    dt_tp_flags = dt_labels
-    gt_fn_flags = ~gt_labels
+        dt_tp_flags[dt_indice_imgi] = dt_tp_flags_imgi
+        gt_fn_flags[gt_indice_imgi] = gt_fn_flags_imgi
     
     # 将dt按照confidence排序, 创建prec-rec curve, 计算AP
     dt_sort_indice = np.argsort(dt_scores)[::-1]
-    dt_gt_ids = dt_gt_ids[dt_sort_indice]
-    dt_labels = dt_labels[dt_sort_indice]
-    dt_insts = dt_insts[dt_sort_indice]
-    dt_scores = dt_scores[dt_sort_indice]
-    dt_img_hws = dt_img_hws[dt_sort_indice]
-    dt_img_ids = dt_img_ids[dt_sort_indice]
+    dt_tp_flags_sort = dt_tp_flags[dt_sort_indice]
 
+    # 用 culmulative sum 计算prec_curve和rec_curve
+    # i.e. [1, 1, 0, 1, 0] -> [1, 2, 2, 3, 3]
+    num_dts = len(dt_insts)
+    num_gts = len(gt_insts)
+    ep = 1e-6
+    tp_cumsum = np.cumsum(dt_tp_flags_sort.astype(np.uint))
+    prec_curve = tp_cumsum / (num_dts + ep)
+    rec_curve = tp_cumsum / (num_gts + ep)
+
+    # 用积分计算prec_curve和rec_curve下的面积, 即AP
+    # 注意初始点坐标为(prec=1, rec=0)
+    prec_curve = np.concatenate([1], prec_curve)
+    rec_curve = np.concatenate([0], rec_curve)
+    ap = np.trapz(prec_curve, rec_curve)
+    prec = prec_curve[-1].item()
+    rec = rec_curve[-1].item()
+    metrics = (ap, prec, rec)
+
+    return metrics, dt_gt_ids, dt_tp_flags, gt_fn_flags
