@@ -7,7 +7,7 @@ from typing import Union, Literal, Dict, List
 import numpy as np
 import pycocotools.mask as pycocomask
 
-from pycv.structures import DetInsts, SegmInsts
+from pycv.structures_bkp import DetInsts, SegmInsts
 
 
 def labelme2insts(
