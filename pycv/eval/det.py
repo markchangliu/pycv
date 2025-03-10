@@ -26,10 +26,8 @@ def assign_gt_to_dt(
     Returns
     - `dt_gt_ids`: `Array[long]`, shape `(num_pred, )`,
     和dt匹配的最大分数的gt索引
-    - `dt_labels`: `Array[bool]`, shape `(num_pred, )`, 
-    dt最大分数是否超过`thres`
-    - `gt_labels`: `Array[bool]`, shape `(num_gt, )`,
-    gt是否有dt匹配
+    - `dt_tp_flags`: `Array[bool]`, shape `(num_pred, )`, 
+    - `gt_fn_flags`: `Array[bool]`, shape `(num_gt, )`,
 
     Examples
     ```
@@ -41,50 +39,50 @@ def assign_gt_to_dt(
     ]
 
     # max_one_dt_per_gt为False, gt 1匹配了dt 1和dt 2
-    dt_gt_ids, dt_labels, gt_labels = assign_gt_to_dt(
+    dt_gt_ids, dt_tp_flags, gt_fn_flags = assign_gt_to_dt(
         score_mat, 0.5, False
     )
 
     print(dt_gt_ids)
     >>> array([0, 1, 1, 2], dtype=int64)
 
-    print(dt_labels)
+    print(dt_tp_flags)
     >>> array([False,  True,  True,  True])
 
-    print(gt_labels)
-    >>> array([False,  True,  True])
+    print(gt_fn_flags)
+    >>> array([True,  False,  False])
 
     # max_one_dt_per_gt为True, gt 1只匹配了dt 1
-    dt_gt_ids, dt_labels, gt_labels = assign_gt_to_dt(
+    dt_gt_ids, dt_tp_flags, gt_fn_flags = assign_gt_to_dt(
         score_mat, 0.5, True
     )
 
     print(dt_gt_ids)
     >>> array([0, 1, 1, 2], dtype=int64)
 
-    print(dt_labels)
+    print(dt_tp_flags)
     >>> array([False,  False,  True,  True])
 
-    print(gt_labels)
-    >>> array([False,  True,  True])
+    print(gt_fn_flags)
+    >>> array([True,  False,  False])
     ```
     """
     num_pred, num_gt = score_mat.shape
     score_mat = copy.deepcopy(score_mat)
 
     dt_gt_ids = np.ones((num_pred, ), dtype=np.int_) * -1
-    dt_labels = np.zeros((num_pred, ), dtype=np.bool_)
-    gt_labels = np.zeros((num_gt, ), dtype=np.bool_)
+    dt_tp_flags = np.zeros((num_pred, ), dtype=np.bool_)
+    gt_fn_flags = np.zeros((num_gt, ), dtype=np.bool_)
 
     if num_pred == 0 or np.max(score_mat) < thres or num_gt == 0:
-        return dt_gt_ids, dt_labels, gt_labels
+        return dt_gt_ids, dt_tp_flags, gt_labels
 
     # 为dt匹配分数最大的gt
     dt_gt_ids = np.argmax(score_mat, axis=1)
     max_scores_dt = score_mat[range(num_pred), dt_gt_ids]
 
     # 将分数大于thres的pred label设为True
-    dt_labels[max_scores_dt>thres] = True
+    dt_tp_flags[max_scores_dt>thres] = True
 
     # 将匹配到dt的gt label设为True
     max_scores_gt = np.max(score_mat, axis=0)
@@ -92,9 +90,11 @@ def assign_gt_to_dt(
 
     # 如果max_one_dt_per_gt为True, 将除max_score以外的dt_labels改为False
     if max_one_dt_per_gt:
-        dt_labels[max_scores_dt<max_scores_gt[dt_gt_ids]] = False
+        dt_tp_flags[max_scores_dt<max_scores_gt[dt_gt_ids]] = False
     
-    return dt_gt_ids, dt_labels, gt_labels
+    gt_fn_flags = ~gt_labels
+    
+    return dt_gt_ids, dt_tp_flags, gt_fn_flags
 
 
 def get_iou_bbox(
@@ -176,15 +176,16 @@ def get_AP_fp_fn(
     elif len(gt_insts) == 3:
         mode = "segm"
 
+    # 遍历图片, 在每张图片上匹配dt和gt, 标记dt是否为tp, gt是否为fn
     for img_id in img_ids:
-        gt_indice = gt_img_ids == img_id
-        gt_insts_imgi = gt_insts[gt_indice]
+        gt_indice_imgi = gt_img_ids == img_id
+        gt_insts_imgi = gt_insts[gt_indice_imgi]
 
-        dt_indice = dt_img_ids == img_id
-        dt_scores_imgi = dt_scores[dt_indice]
-        dt_insts_imgi = dt_insts[dt_indice]
+        dt_indice_imgi = dt_img_ids == img_id
+        dt_scores_imgi = dt_scores[dt_indice_imgi]
+        dt_insts_imgi = dt_insts[dt_indice_imgi]
 
-        img_h, img_w = gt_img_hws[gt_indice][0].tolist()
+        img_h, img_w = gt_img_hws[dt_indice_imgi][0].tolist()
 
         if mode == "bbox":
             iou = get_iou_bbox(gt_insts_imgi, dt_insts_imgi)
@@ -192,8 +193,22 @@ def get_AP_fp_fn(
             iou = get_iou_segm(gt_insts_imgi, dt_insts_imgi)
         
         dt_gt_ids_imgi, dt_labels_imgi, gt_labels_imgi = assign_gt_to_dt(
-            iou, iou_thres
+            iou, iou_thres, True
         )
 
-        dt_gt_ids[dt_indice] = dt_gt_ids_imgi
-        
+        dt_gt_ids[dt_indice_imgi] = dt_gt_ids_imgi
+        dt_labels[dt_indice_imgi] = dt_labels_imgi
+        gt_labels[gt_indice_imgi] = gt_labels_imgi
+
+    dt_tp_flags = dt_labels
+    gt_fn_flags = ~gt_labels
+    
+    # 将dt按照confidence排序, 创建prec-rec curve, 计算AP
+    dt_sort_indice = np.argsort(dt_scores)[::-1]
+    dt_gt_ids = dt_gt_ids[dt_sort_indice]
+    dt_labels = dt_labels[dt_sort_indice]
+    dt_insts = dt_insts[dt_sort_indice]
+    dt_scores = dt_scores[dt_sort_indice]
+    dt_img_hws = dt_img_hws[dt_sort_indice]
+    dt_img_ids = dt_img_ids[dt_sort_indice]
+
