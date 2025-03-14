@@ -1,5 +1,9 @@
 import copy
+
 import numpy as np
+
+from pycv.data_structures.bboxes import BBoxFormat
+from pycv.data_structures.base import DataType, BaseStructure
 
 
 def bboxes_xywh2xyxy(
@@ -40,3 +44,18 @@ def bboxes_xyxy2xywh(
     bboxes_xywh[:, 3] = hs
 
     return bboxes_xywh
+
+
+def convert_bboxes(
+    src_coords: np.ndarray,
+    src_format: BBoxFormat,
+    dst_format: BBoxFormat
+) -> np.ndarray:
+    if src_format == BBoxFormat.XYXY and dst_format == BBoxFormat.XYWH:
+        dst_coords = bboxes_xyxy2xywh(src_coords)
+    elif src_format == BBoxFormat.XYWH and dst_format == BBoxFormat.XYXY:
+        dst_coords = bboxes_xywh2xyxy(src_coords)
+    else:
+        raise NotImplementedError
+
+    return dst_coords
