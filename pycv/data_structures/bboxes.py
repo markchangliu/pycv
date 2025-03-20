@@ -1,11 +1,11 @@
 import copy
 from enum import Enum
 from dataclasses import dataclass
+from typing import Union, List
 
 import numpy as np
 
 from pycv.data_structures.base import BaseStructure, DataType
-from pycv.data_structures.converters import convert_bboxes
 
 
 class BBoxFormat(Enum):
@@ -17,11 +17,25 @@ class BBoxFormat(Enum):
 class BBoxes(BaseStructure):
     coords: np.ndarray # shape (num_objs, 4)
     format: BBoxFormat
-    confidence: float
-    class_id: int
 
     def __post_init__(self) -> None:
         self.data_type = DataType.BBOXES
+        self.coords.astype(np.int_)
+        self.validate()
+    
+    def __len__(self) -> int:
+        return len(self.coords)
+    
+    def __getitem__(
+        self,
+        item: Union[int, List[int], slice, np.ndarray]
+    ) -> "BBoxes":
+        if isinstance(item, int):
+            item = [item]
+        
+        coords = self.coords[item, :]
+        new_bboxes = BBoxes(coords, self.format)
+        return new_bboxes
     
     def validate(self) -> None:
         if len(self.coords.shape) != 2 or self.coords.shape[-1] != 4:
@@ -39,3 +53,60 @@ class BBoxes(BaseStructure):
         )
         dst_bboxes = BBoxes(dst_coords, dst_format, self.confidence, self.class_id)
         return dst_bboxes
+
+
+def convert_bboxes(
+    src_coords: np.ndarray,
+    src_format: BBoxFormat,
+    dst_format: BBoxFormat
+) -> np.ndarray:
+    if src_format == dst_format:
+        dst_coords = src_coords
+    elif src_format == BBoxFormat.XYXY and dst_format == BBoxFormat.XYWH:
+        dst_coords = convert_bboxes_xyxy2xywh(src_coords)
+    elif src_format == BBoxFormat.XYWH and dst_format == BBoxFormat.XYXY:
+        dst_coords = convert_bboxes_xywh2xyxy(src_coords)
+    else:
+        raise NotImplementedError
+
+    return dst_coords
+
+
+def convert_bboxes_xywh2xyxy(
+    bboxes_xywh: np.ndarray
+) -> np.ndarray:
+    """
+    Args
+    - `bboxes_xywh`: `Array[int]`, shape `(num_bbox, 4)`
+
+    Returns
+    - `bboxes_xyxy`: `Array[int]`, shape `(num_bbox, 4)`
+    """
+    ws = bboxes_xywh[:, 2]
+    hs = bboxes_xywh[:, 3]
+    
+    bboxes_xyxy = copy.deepcopy(bboxes_xywh)
+    bboxes_xyxy[:, 2] = bboxes_xywh[:, 0] + ws
+    bboxes_xyxy[:, 3] = bboxes_xywh[:, 1] + hs
+
+    return bboxes_xyxy
+
+
+def convert_bboxes_xyxy2xywh(
+    bboxes_xyxy: np.ndarray
+) -> np.ndarray:
+    """
+    Args
+    - `bboxes_xyxy`: `Array[int]`, shape `(num_bbox, 4)`
+
+    Returns
+    - `bboxes_xywh`: `Array[int]`, shape `(num_bbox, 4)`
+    """
+    ws = bboxes_xyxy[:, 2] - bboxes_xyxy[:, 0]
+    hs = bboxes_xyxy[:, 3] - bboxes_xyxy[:, 1]
+
+    bboxes_xywh = copy.deepcopy(bboxes_xyxy)
+    bboxes_xywh[:, 2] = ws
+    bboxes_xywh[:, 3] = hs
+
+    return bboxes_xywh

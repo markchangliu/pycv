@@ -2,46 +2,50 @@ from typing import Union, List, Optional
 
 import numpy as np
 
+from pycv.data_structures.bboxes import BBoxFormat, BBoxes
+from pycv.data_structures.masks import MaskFormat, Masks
+
 
 class Insts:
     """
     Attrs
     -----
-    - `self.scores`: `Array[float_]`, `(num_insts, )`
-    - `self.cats`: `Array[int_]`, `(num_insts, )`
-    - `self.bboxes`: `Array[int_]`, `(num_insts, 4)`, `x1y1x2y2`
-    - `self.masks`: `Optional[Array[uint8]]`, `(num_insts, img_h, img_w)`, 0/1
+    - `self.confs`: `Array[float]`, `(num_insts, )`
+    - `self.cat_ids`: `Array[int]`, `(num_insts, )`
+    - `self.bboxes`: `BBoxes`, `(num_insts, 4)`,
+    - `self.masks`: `Masks`, `(num_insts, ...)`,
     """
 
     def __init__(
         self,
-        scores: np.ndarray,
-        cats: np.ndarray,
-        bboxes: np.ndarray,
-        masks: Optional[np.ndarray]
+        confs: np.ndarray,
+        cat_ids: np.ndarray,
+        bboxes: BBoxes,
+        masks: Optional[Masks]
     ) -> None:
         if masks is not None:
-            assert len(scores) == len(cats) == len(bboxes) == len(masks)
+            assert len(confs) == len(cat_ids) == len(bboxes) == len(masks)
+            bboxes.convert_format(BBoxFormat.XYWH)
+            masks.convert_format(MaskFormat.BINARY)
         else:
-            assert len(scores) == len(cats) == len(bboxes)
-
-        sort_idx = np.argsort(scores)[::-1]
-        scores = scores[sort_idx]
-        cats = cats[sort_idx]
-        bboxes = bboxes[sort_idx, ...]
+            assert len(confs) == len(cat_ids) == len(bboxes)
+            bboxes.convert_format(BBoxFormat.XYWH)
         
-        self.scores = scores.astype(np.float_)
-        self.cats = cats.astype(np.int_)
-        self.bboxes = bboxes.astype(np.int_)
+        sort_idx = np.argsort(confs)[::-1]
+        confs = confs[sort_idx]
+        cat_ids = cat_ids[sort_idx]
+        bboxes = bboxes[sort_idx]
 
         if masks is not None:
-            masks = masks[sort_idx, ...]
-            self.masks = masks.astype(np.bool_)
-        else:
-            self.masks = None
+            mask = masks[sort_idx]
+        
+        self.confs = confs.astype(np.float_)
+        self.cat_ids = cat_ids.astype(np.int_)
+        self.bboxes = bboxes
+        self.masks = masks
     
     def __len__(self) -> int:
-        return len(self.scores)
+        return len(self.confs)
 
     def __getitem__(
         self, 
@@ -50,14 +54,14 @@ class Insts:
         if isinstance(item, int):
             item = [item]
         
-        scores = self.scores[item]
-        cats = self.cats[item]
-        bboxes = self.bboxes[item, :]
+        confs = self.confs[item]
+        cat_ids = self.cat_ids[item]
+        bboxes = self.bboxes[item]
 
         if self.masks is not None:
-            masks = self.masks[item, :]
-            insts = Insts(scores, cats, bboxes, masks)
+            masks = self.masks[item]
+            insts = Insts(confs, cat_ids, bboxes, masks)
         else:
-            insts = Insts(scores, cats, bboxes, None)
+            insts = Insts(confs, cat_ids, bboxes, None)
 
         return insts

@@ -10,7 +10,7 @@ from pycocotools.coco import COCO
 
 from pycv.structures_bkp import DetInsts, SegmInsts
 from pycv.labels.insts import insts2labelme
-from pycv.data_structures.mask import polyscoco2masks, rles2masks, center_pad_masks
+from pycv.data_structures.masks import polyscoco2masks, rles2masks, center_pad_masks
 
 
 def coco2labelme(
