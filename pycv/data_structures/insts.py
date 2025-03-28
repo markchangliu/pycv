@@ -1,12 +1,21 @@
+from enum import Enum
+from dataclasses import dataclass
 from typing import Union, List, Optional
 
 import numpy as np
 
+from pycv.data_structures.base import BaseStructure
 from pycv.data_structures.bboxes import BBoxFormat, BBoxes
 from pycv.data_structures.masks import MaskFormat, Masks
 
 
-class Insts:
+class InstsType(Enum):
+    GT: str = "ground_truth"
+    DT: str = "detection"
+
+
+@dataclass
+class Insts(BaseStructure):
     """
     Attrs
     -----
@@ -15,34 +24,14 @@ class Insts:
     - `self.bboxes`: `BBoxes`, `(num_insts, 4)`,
     - `self.masks`: `Masks`, `(num_insts, ...)`,
     """
+    type: InstsType
+    confs: np.ndarray
+    cat_ids: np.ndarray
+    bboxes: BBoxes
+    masks: Optional[Masks]
 
-    def __init__(
-        self,
-        confs: np.ndarray,
-        cat_ids: np.ndarray,
-        bboxes: BBoxes,
-        masks: Optional[Masks]
-    ) -> None:
-        if masks is not None:
-            assert len(confs) == len(cat_ids) == len(bboxes) == len(masks)
-            bboxes.convert_format(BBoxFormat.XYWH)
-            masks.convert_format(MaskFormat.BINARY)
-        else:
-            assert len(confs) == len(cat_ids) == len(bboxes)
-            bboxes.convert_format(BBoxFormat.XYWH)
-        
-        sort_idx = np.argsort(confs)[::-1]
-        confs = confs[sort_idx]
-        cat_ids = cat_ids[sort_idx]
-        bboxes = bboxes[sort_idx]
-
-        if masks is not None:
-            mask = masks[sort_idx]
-        
-        self.confs = confs.astype(np.float_)
-        self.cat_ids = cat_ids.astype(np.int_)
-        self.bboxes = bboxes
-        self.masks = masks
+    def __post_init__(self) -> None:
+        self.validate()
     
     def __len__(self) -> int:
         return len(self.confs)
@@ -65,3 +54,13 @@ class Insts:
             insts = Insts(confs, cat_ids, bboxes, None)
 
         return insts
+
+    def validate(self):
+        if self.masks is not None:
+            assert len(self.confs) == len(self.cat_ids) \
+                == len(self.bboxes) == len(self.masks)
+            self.bboxes.convert_format(BBoxFormat.XYWH)
+            self.masks.convert_format(MaskFormat.BINARY)
+        else:
+            assert len(self.confs) == len(self.cat_ids) == len(self.bboxes)
+            self.bboxes.convert_format(BBoxFormat.XYWH)
