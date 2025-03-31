@@ -9,11 +9,6 @@ from pycv.data_structures.bboxes import BBoxFormat, BBoxes
 from pycv.data_structures.masks import MaskFormat, Masks
 
 
-class InstsType(Enum):
-    GT: str = "ground_truth"
-    DT: str = "detection"
-
-
 @dataclass
 class Insts(BaseStructure):
     """
@@ -24,7 +19,6 @@ class Insts(BaseStructure):
     - `self.bboxes`: `BBoxes`, `(num_insts, 4)`,
     - `self.masks`: `Masks`, `(num_insts, ...)`,
     """
-    type: InstsType
     confs: np.ndarray
     cat_ids: np.ndarray
     bboxes: BBoxes
@@ -54,6 +48,24 @@ class Insts(BaseStructure):
             insts = Insts(confs, cat_ids, bboxes, None)
 
         return insts
+    
+    def concat(
+        self, 
+        other_insts: Union["Insts", List["Insts"]]
+    ) -> "Insts":
+        if isinstance(other_insts, Insts):
+            new_confs = np.concat([self.confs, other_insts.confs])
+            new_cat_ids = np.concat([self.cat_ids, other_insts.cat_ids])
+        elif isinstance(other_insts, (list, tuple)):
+            new_confs = [self.confs] + [i.confs for i in other_insts]
+            new_confs = np.concat(new_confs, axis=0)
+            new_cat_ids = [self.cat_ids] + [i.cat_ids for i in other_insts]
+            new_cat_ids = np.concat(new_cat_ids, axis=0)
+
+        new_bboxes = self.bboxes.concat(other_insts.bboxes)
+        new_masks = self.masks.concat(other_insts.masks)
+        new_insts = Insts(new_confs, new_cat_ids, new_bboxes, new_masks)
+        return new_insts
 
     def validate(self):
         if self.masks is not None:
@@ -62,5 +74,6 @@ class Insts(BaseStructure):
             self.bboxes.convert_format(BBoxFormat.XYWH)
             self.masks.convert_format(MaskFormat.BINARY)
         else:
-            assert len(self.confs) == len(self.cat_ids) == len(self.bboxes)
+            assert len(self.confs) == len(self.cat_ids) \
+                == len(self.bboxes)
             self.bboxes.convert_format(BBoxFormat.XYWH)

@@ -53,6 +53,44 @@ class Masks(BaseStructure):
         new_masks = Masks(new_data, self.img_hw, self.format)
         return new_masks
 
+    def _concat(
+        self,
+        other_masks: "Masks"
+    ) -> "Masks":
+        assert self.img_hw == other_masks.img_hw
+        
+        if self.format != other_masks.format:
+            other_masks.convert_format(self.format)
+
+        if self.format == MaskFormat.POLY or self.format == MaskFormat.RLE:
+            new_data = self.data + other_masks.data
+        elif self.format == MaskFormat.BINARY:
+            new_data = np.concat([self.data, other_masks.data], axis=0)
+        
+        new_masks = Masks(new_data, self.img_hw, self.format)
+
+        return new_masks
+    
+    def concat(
+        self, 
+        other_masks: Union["Masks", List["Masks"]]
+    ) -> "Masks":
+        if isinstance(other_masks, Masks):
+            new_masks = self._concat(other_masks)
+        elif isinstance(other_masks, (list, tuple)):
+            new_masks = self
+            for masks in other_masks:
+                new_masks = new_masks._concat(masks)
+        
+        return new_masks
+    
+    def convert_format(self, dst_format: MaskFormat) -> "Masks":
+        dst_data = convert_masks(
+            self.data, self.format, dst_format
+        )
+        dst_masks = Masks(dst_data, self.img_hw, dst_format)
+        return dst_masks
+    
     def validate(self):
         if self.format == MaskFormat.POLY:
             error_msg = (
@@ -83,13 +121,6 @@ class Masks(BaseStructure):
                 raise ValueError("rle dictionary is not valid")
         else:
             raise ValueError("invalid mask format")
-    
-    def convert_format(self, dst_format: MaskFormat) -> "Masks":
-        dst_data = convert_masks(
-            self.data, self.format, dst_format
-        )
-        dst_masks = Masks(dst_data, self.img_hw, dst_format)
-        return dst_masks
 
 
 def convert_masks(
@@ -131,9 +162,9 @@ def convert_masks_polys2rles(
     rles = []
 
     for polys_obj in polys:
-        rles = pycocomask.frPyObjects(polys_obj, img_hw[0], img_hw[1])
-        rle = pycocomask.merge(rles)
-        rles.append(rle)
+        rles_obj = pycocomask.frPyObjects(polys_obj, img_hw[0], img_hw[1])
+        rles_obj = pycocomask.merge(rles_obj)
+        rles.append(rles_obj)
     
     return rles
 

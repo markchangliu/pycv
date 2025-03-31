@@ -10,7 +10,11 @@ from pycocotools.coco import COCO
 
 from pycv.structures_bkp import DetInsts, SegmInsts
 from pycv.labels.insts import insts2labelme
-from pycv.data_structures.masks import polyscoco2masks, rles2masks, center_pad_masks
+from pycv.data_structures.masks import (
+    convert_masks_polys2binarys, 
+    convert_masks_rles2binarys, 
+    # center_pad_masks
+)
 
 
 def coco2labelme(
@@ -340,14 +344,14 @@ def get_mAP_prec_rec(
         for i in range(len(gt_insts)):
             img_h, img_w = gt_img_hws[i]
             gt_poly = gt_insts[i]
-            gt_mask = polyscoco2masks(gt_poly, (img_h, img_w), True)
+            gt_mask = convert_masks_polys2binarys(gt_poly, (img_h, img_w), True)
             gt_insts[i] = center_pad_masks(gt_mask, (max_h, max_w))
 
         dt_insts = [d["segmentation"] for d in dt_insts]
         for i in range(len(dt_insts)):
             img_h, img_w = dt_img_hws[i]
             dt_rle = dt_insts[i]
-            dt_mask = rles2masks(dt_rle)
+            dt_mask = convert_masks_rles2binarys(dt_rle)
             dt_insts[i] = center_pad_masks(dt_mask, (max_h, max_w))
 
         gt_insts = np.asarray(gt_insts)
@@ -367,4 +371,94 @@ def get_mAP_prec_rec(
         dt_scores_cati = dt_scores[dt_indice]
         dt_insts_cati = dt_insts[dt_indice]
 
+
+def merge_cocos(
+    coco_ps: List[Union[str, os.PathLike]],
+    img_prefixs: List[Union[str, os.PathLike]],
+    export_coco_p: Union[str, os.PathLike]
+) -> None:
+    global_img_id = 0
+    global_ann_id = 0
+    global_cat_id = 0
+
+    global_cat_name_id_dict: Dict[str, int] = {}
+    global_cat_id_name_dict: Dict[int, str] = {}
+
+    global_imgs: List[dict] = []
+    global_cats: List[dict] = []
+    global_anns: List[dict] = []
+
+    all_img_with_anns = []
+
+    for coco_p, img_prefix in zip(coco_ps, img_prefixs):
+        coco = COCO(coco_p)
+
+        cat_name_id_dict: Dict[str, int] = {}
+        cat_id_name_dict: Dict[id, str] = {}
+
+        for _, cat in coco.cats.items():
+            cat_name = cat["name"]
+            cat_id = cat["id"]
+            cat_name_id_dict[cat_name] = cat_id
+            cat_id_name_dict[cat_id] = cat_name
+
+        for _, img in coco.imgs.items():
+            img_id = img["id"]
+            img_name = img["file_name"]
+            img["file_name"] = os.path.join(img_prefix, img_name)
+
+            img_ann_ids = coco.getAnnIds(img_id)
+            img_anns = coco.loadAnns(img_ann_ids)
+
+            img_anns_ = []
+
+            for ann in img_anns:
+                cat_id = ann["category_id"]
+                ann["category_name"] = cat_id_name_dict[cat_id]
+                img_anns_.append(ann)
         
+            all_img_with_anns.append((img, img_anns_))
+
+    for img_with_ann in all_img_with_anns:
+        img: dict = img_with_ann[0]
+        img_anns: List[dict] = img_with_ann[1]
+
+        img["id"] = global_img_id
+        global_imgs.append(img)
+        global_img_id += 1
+
+        for ann in img_anns:
+            cat_name = ann["category_name"]
+            ann["id"] =  global_ann_id
+            global_ann_id += 1
+
+            ann["image_id"] = img["id"]
+
+            if cat_name not in global_cat_name_id_dict.keys():
+                global_cat_name_id_dict[cat_name] = global_cat_id
+                global_cat_id_name_dict[global_cat_id] = cat_name
+
+                ann["category_id"] = global_cat_id
+                del ann["category_name"]
+                global_cat_id += 1
+            else:
+                cat_id = global_cat_name_id_dict[cat_name]
+                ann["category_id"] = cat_id
+                del ann["category_name"]
+            
+            global_anns.append(ann)
+        
+    for cat_name, cat_id in global_cat_name_id_dict.items():
+        global_cats.append({"id": cat_id, "name": cat_name})
+
+    global_coco = {
+        "images": global_imgs,
+        "categories": global_cats,
+        "annotations": global_anns
+    }
+
+    export_dir = Path(export_coco_p).parent
+    os.makedirs(export_dir, exist_ok = True)
+    
+    with open(export_coco_p, "w") as f:
+        json.dump(global_coco, f)

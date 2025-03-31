@@ -37,6 +37,32 @@ class BBoxes(BaseStructure):
         new_bboxes = BBoxes(coords, self.format)
         return new_bboxes
     
+    def _concat(self, other_bboxes: "BBoxes") -> "BBoxes":
+        if self.format != other_bboxes.format:
+            other_bboxes.convert_format(self.format)
+        
+        new_coords = np.concat([self.coords, other_bboxes.coords], axis=0)
+        new_bboxes = BBoxes(new_coords, self.format)
+
+        return new_bboxes
+    
+    def concat(
+        self,
+        other_bboxes: Union["BBoxes", List["BBoxes"]]
+    ) -> "BBoxes":
+        new_bboxes = self
+        for bboxes in other_bboxes:
+            new_bboxes = new_bboxes._cocnat(bboxes)
+
+        return new_bboxes
+
+    def convert_format(self, dst_format: BBoxFormat) -> "BBoxes":
+        dst_coords = convert_bboxes(
+            self.coords, self.format, dst_format
+        )
+        dst_bboxes = BBoxes(dst_coords, dst_format, self.confidence, self.class_id)
+        return dst_bboxes
+    
     def validate(self) -> None:
         if len(self.coords.shape) != 2 or self.coords.shape[-1] != 4:
             raise ValueError("BBoxes coords must be of shape (num, 4)")
@@ -46,13 +72,6 @@ class BBoxes(BaseStructure):
                 raise ValueError("xmax must be greater than xmin")
             if np.sum(self.coords[:, 1] >= self.coords[:, 2]) > 0:
                 raise ValueError("ymax must be greater than ymin")
-
-    def convert_format(self, dst_format: BBoxFormat) -> "BBoxes":
-        dst_coords = convert_bboxes(
-            self.coords, self.format, dst_format
-        )
-        dst_bboxes = BBoxes(dst_coords, dst_format, self.confidence, self.class_id)
-        return dst_bboxes
 
 
 def convert_bboxes(
