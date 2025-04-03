@@ -134,6 +134,11 @@ class DetDataset:
         )
 
         return new_dataset
+
+    def get_data_of_img_ids(
+        self,
+        target_img_ids:
+    )
     
     def tag_imgs(
         self,

@@ -6,6 +6,9 @@ from typing import List, Dict, Union
 import cv2
 import numpy as np
 
+from pycv.data_structures.bboxes import BBoxes, BBoxFormat
+from pycv.data_structures.masks import Masks, MaskFormat
+from pycv.data_structures.insts import Insts
 from pycv.data_structures.det_data import DetData
 from pycv.datasets.det_datasets import DetDataset
 from pycv.datasets.label_parsers import parser_labelme
@@ -69,4 +72,35 @@ def load_dataset_from_coco_json(
     coco_p: Union[str, os.PathLike],
     img_prefix: Union[str, os.PathLike]
 ) -> DetDataset:
+    with open(coco_p, "r") as f:
+        coco_dict = json.load(f)
+    
+    cat_name_id_dict = {}
+    cat_id_name_dict = {}
+
+    for cat_info in coco_dict["categories"]:
+        cat_name = cat_info["name"]
+        cat_id = cat_info["id"]
+        cat_name_id_dict[cat_name] = cat_id
+        cat_id_name_dict[cat_id] = cat_name
+    
+    imgs = []
+    img_ids = []
+    
+    for img_info in coco_dict["images"]:
+        img_p = os.path.join(img_prefix, img_info["file_name"])
+        img_id = img_info["id"]
+        imgs.append(img_p)
+        img_ids.append(img_id)
+    
+    anns = []
+    ann_ids = [[] * (len(img_ids) + 1)]
+    for ann_info in coco_dict["annotations"]:
+        conf = 1
+        cat_id = ann_info["category_id"]
+        bbox = ann_info["bbox"]
+        segm = ann_info["segmentation"]
+        ann_img_id = ann_info["image_id"]
+
+        
     
