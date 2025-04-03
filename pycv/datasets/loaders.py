@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Union
 
 import cv2
 import numpy as np
@@ -30,14 +30,14 @@ def load_dataset_from_labelme_dirs(
 
     data_list = []
     img_ids = []
-    inst_ids = []
+    insts_ids = []
 
     curr_img_id = 0
     curr_inst_id = 0
 
     for img_dir, labelme_dir in zip(img_dirs, labelme_dirs):
-        img_generator = load_files(img_dir, include_suffixes=(".png", ".jpg", ))
-        
+        img_generator = load_files(img_dir, include_suffixes=(".png", ".jpg", ".jpeg"))
+
         for img_p in img_generator:
             img_dir = Path(img_p).parent
             img_stem = Path(img_p).stem
@@ -52,7 +52,7 @@ def load_dataset_from_labelme_dirs(
 
             data_list.append(det_data)
             img_ids.append(curr_img_id)
-            inst_ids.append(
+            insts_ids.append(
                 list(range(curr_inst_id, curr_inst_id + len(det_data)))
             )
 
@@ -60,7 +60,13 @@ def load_dataset_from_labelme_dirs(
             curr_inst_id += len(det_data)
 
     det_dataset = DetDataset(
-        data_list, cat_id_name_dict, cat_name_id_dict, img_ids
+        data_list, cat_id_name_dict, cat_name_id_dict, img_ids, insts_ids
     )
 
     return det_dataset
+
+def load_dataset_from_coco_json(
+    coco_p: Union[str, os.PathLike],
+    img_prefix: Union[str, os.PathLike]
+) -> DetDataset:
+    

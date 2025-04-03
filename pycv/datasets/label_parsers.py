@@ -11,7 +11,7 @@ from pycv.data_structures.masks import Masks, MaskFormat
 from pycv.data_structures.insts import Insts, InstsType
 
 
-def parser_labelme(
+def parse_labelme_json(
     labelme_p: Union[str, os.PathLike],
     cat_name_id_dict: Dict[str, int],
     img_prefix: Union[str, os.PathLike]
