@@ -66,13 +66,15 @@ class DetDataset:
         new_img_ids = []
         new_insts_ids = []
 
-        for img_id, data in zip(self.img_ids, self.data_list):
-            new_data, new_inst_ids = data.get_insts_of_cat_ids(target_cat_ids, True)
+        for img_id, inst_ids, data in zip(self.img_ids, self.insts_ids, self.data_list):
+            new_data, new_inst_ids_local = data.get_insts_of_cat_ids(target_cat_ids, True)
             
-            if len(new_inst_ids) == 0:
+            if len(new_inst_ids_local) == 0:
                 continue
+            
+            new_inst_ids = [inst_ids[i] for i in new_inst_ids_local]
 
-            new_data_list.append(data)
+            new_data_list.append(new_data)
             new_img_ids.append(img_id)
             new_insts_ids.append(new_inst_ids)
         
@@ -116,10 +118,11 @@ class DetDataset:
 
         for img_id, inst_ids, data in zip(self.img_ids, self.insts_ids, self.data_list):
             new_data, new_inst_ids_local = data.get_insts_of_tags(target_inst_tags, True)
-            new_inst_ids = inst_ids[new_inst_ids_local]
 
             if len(new_inst_ids_local) == 0:
                 continue
+
+            new_inst_ids = [inst_ids[i] for i in new_inst_ids_local]
 
             new_data_list.append(new_data)
             new_img_ids.append(img_id)
