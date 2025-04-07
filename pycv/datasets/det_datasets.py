@@ -134,7 +134,11 @@ class DetDataset:
         self,
         target_img_ids: List[int]
     ) -> "DetDataset":
+        pass
         
+    def reindex(self) -> None:
+        
+        pass
     
     def tag_imgs(
         self,
