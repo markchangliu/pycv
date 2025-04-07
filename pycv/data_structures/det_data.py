@@ -36,17 +36,8 @@ class DetData(BaseStructure):
         new_data = DetData(self.img, new_insts, new_insts_tags)
 
         return new_data
-
-
-    def validate(self):
-        if isinstance(self.img, str) and self.insts.masks is not None:
-            img_h, img_w = self.img.shape[:2]
-            mask_img_h, mask_img_w = self.insts.masks.img_hw
-            
-            if img_h != mask_img_h or img_w != mask_img_w:
-                raise ValueError("img and insts.mask have different sizes")
     
-    def get_insts_of_tags(
+    def get_subdata_of_inst_tags(
         self,
         target_inst_tags: List[str],
         return_idx_flag: bool
@@ -73,7 +64,7 @@ class DetData(BaseStructure):
 
         return new_data
             
-    def get_insts_of_cat_ids(
+    def get_subdata_of_cat_ids(
         self,
         target_cat_ids: List[int],
         return_idx_flag: bool
@@ -127,3 +118,11 @@ class DetData(BaseStructure):
                     new_insts_tags[inst_id].append(new_tag)
 
         self.insts_tags = [set(ts) for ts in new_insts_tags]
+
+    def validate(self):
+        if isinstance(self.img, str) and self.insts.masks is not None:
+            img_h, img_w = self.img.shape[:2]
+            mask_img_h, mask_img_w = self.insts.masks.img_hw
+            
+            if img_h != mask_img_h or img_w != mask_img_w:
+                raise ValueError("img and insts.mask have different sizes")

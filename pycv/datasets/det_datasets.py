@@ -46,12 +46,7 @@ class DetDataset:
 
         return new_dataset
 
-    def validate(self) -> None:
-        assert len(self.data_list) == len(self.img_ids) \
-            == len(self.insts_ids)
-        assert len(self.cat_id_name_dict) == len(self.cat_name_id_dict)
-
-    def get_data_of_cat_ids(
+    def get_subset_of_cat_ids(
         self, 
         target_cat_ids: List[int]
     ) -> "DetDataset":
@@ -85,7 +80,7 @@ class DetDataset:
 
         return new_dataset
     
-    def get_data_of_img_tags(
+    def get_subset_of_img_tags(
         self,
         target_img_tags: List[str]
     ) -> "DetDataset":
@@ -107,7 +102,7 @@ class DetDataset:
 
         return new_dataset
     
-    def get_data_of_inst_tags(
+    def get_subset_of_inst_tags(
         self,
         target_inst_tags: List[str],
     ) -> "DetDataset":
@@ -135,10 +130,11 @@ class DetDataset:
 
         return new_dataset
 
-    def get_data_of_img_ids(
+    def get_subset_of_img_ids(
         self,
-        target_img_ids:
-    )
+        target_img_ids: List[int]
+    ) -> "DetDataset":
+        
     
     def tag_imgs(
         self,
@@ -157,4 +153,9 @@ class DetDataset:
     ) -> None:
         for data in self.data_list:
             data.tag_insts(new_tags, lambda_funcs, retag_flag)
+    
+    def validate(self) -> None:
+        assert len(self.data_list) == len(self.img_ids) \
+            == len(self.insts_ids)
+        assert len(self.cat_id_name_dict) == len(self.cat_name_id_dict)
         
