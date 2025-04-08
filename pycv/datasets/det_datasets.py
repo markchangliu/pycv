@@ -48,7 +48,8 @@ class DetDataset:
 
     def get_subset_of_cat_ids(
         self, 
-        target_cat_ids: List[int]
+        target_cat_ids: List[int],
+        reindex_flag: bool
     ) -> "DetDataset":
         new_cat_id_name_dict = {
             k: v for k, v in self.cat_id_name_dict if k in target_cat_ids
@@ -78,11 +79,15 @@ class DetDataset:
             new_img_ids, new_insts_ids
         )
 
+        if reindex_flag:
+            new_dataset.reindex()
+
         return new_dataset
     
     def get_subset_of_img_tags(
         self,
-        target_img_tags: List[str]
+        target_img_tags: List[str],
+        reindex_flag: bool
     ) -> "DetDataset":
         target_img_tags = set(target_img_tags)
         new_data_list = []
@@ -100,11 +105,15 @@ class DetDataset:
             new_img_ids, new_insts_ids
         )
 
+        if reindex_flag:
+            new_dataset.reindex()
+
         return new_dataset
     
     def get_subset_of_inst_tags(
         self,
         target_inst_tags: List[str],
+        reindex_flag: bool
     ) -> "DetDataset":
         target_inst_tags = set(target_inst_tags)
         new_data_list = []
@@ -128,17 +137,70 @@ class DetDataset:
             new_img_ids, new_insts_ids
         )
 
+        if reindex_flag:
+            new_dataset.reindex()
+
         return new_dataset
 
     def get_subset_of_img_ids(
         self,
-        target_img_ids: List[int]
+        target_img_ids: List[int],
+        reindex_flag: bool
     ) -> "DetDataset":
-        pass
+        new_data_list = []
+        new_img_ids = []
+        new_insts_ids = []
+
+        for i in range(len(self.data_list)):
+            img_id = self.img_ids[i]
+
+            if img_id not in target_img_ids:
+                continue
+
+            data = self.data_list[i]
+            inst_ids = self.insts_ids[i]
+            
+            new_data_list.append(data)
+            new_img_ids.append(img_id)
+            new_insts_ids.append(inst_ids)
+        
+        new_dataset = DetDataset(
+            new_data_list, self.cat_id_name_dict, self.cat_name_id_dict,
+            new_img_ids, new_insts_ids
+        )
+
+        if reindex_flag:
+            new_dataset.reindex()
+
+        return new_dataset
         
     def reindex(self) -> None:
+        new_img_ids = list(range(len(self.data_list)))
         
-        pass
+        new_cat_id_name_dict = {}
+        new_cat_name_id_dict = {}
+        curr_cat_id = 0
+
+        for k, v in self.cat_id_name_dict.items():
+            new_cat_id_name_dict[curr_cat_id] = v
+            new_cat_name_id_dict[v] = curr_cat_id
+            curr_cat_id += 1
+        
+        new_insts_ids = []
+        curr_inst_id = 0
+
+        for data in self.data_list:
+            new_inst_ids = range(curr_inst_id, curr_inst_id + len(data))
+            new_insts_ids.append(new_inst_ids)
+
+            cat_names = [self.cat_id_name_dict[i] for i in data.insts.cat_ids]
+            new_cat_ids = [new_cat_name_id_dict[n] for n in cat_names]
+            data.insts.cat_ids = np.asarray(new_cat_ids)
+        
+        self.img_ids = new_img_ids
+        self.insts_ids = new_inst_ids
+        self.cat_id_name_dict = new_cat_id_name_dict
+        self.cat_name_id_dict = new_cat_name_id_dict
     
     def tag_imgs(
         self,
