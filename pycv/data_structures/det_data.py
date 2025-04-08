@@ -106,15 +106,17 @@ class DetData(BaseStructure):
     def tag_insts(
         self,
         new_tags: List[str],
-        lambda_funcs: List[Callable[[Insts], bool]],
+        lambda_funcs: List[Callable[[Insts], Union[np.ndarray, List[bool]]]],
         retag_flag: bool
     ) -> None:
         insts_tags = [list(ts) for ts in self.insts_tags]
         new_insts_tags = [[] * len(self.insts)] if retag_flag else copy.deepcopy(insts_tags)
 
         for new_tag, lambda_func in zip(new_tags, lambda_funcs):
-            for inst_id, inst in enumerate(self.insts):
-                if lambda_func(inst):
+            retag_flags = lambda_func(self.insts)
+
+            for inst_id, retag_flag in enumerate(retag_flags):
+                if retag_flag:
                     new_insts_tags[inst_id].append(new_tag)
 
         self.insts_tags = [set(ts) for ts in new_insts_tags]
