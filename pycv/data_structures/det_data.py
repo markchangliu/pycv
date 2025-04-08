@@ -1,7 +1,7 @@
 import copy
 import os
 from dataclasses import dataclass
-from typing import Union, List, Set, Tuple, Callable
+from typing import Union, List, Set, Tuple, Callable, Dict
 
 import numpy as np
 
@@ -120,6 +120,14 @@ class DetData(BaseStructure):
                     new_insts_tags[inst_id].append(new_tag)
 
         self.insts_tags = [set(ts) for ts in new_insts_tags]
+    
+    def update_cat_ids(
+        self, 
+        cat_id_old_new_dict: Dict[int, int]
+    ) -> None:
+        old_cat_ids = self.insts.cat_ids
+        new_cat_ids = [cat_id_old_new_dict[c] for c in old_cat_ids]
+        self.insts.cat_ids = np.asarray(new_cat_ids)
 
     def validate(self):
         if isinstance(self.img, str) and self.insts.masks is not None:

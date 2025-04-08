@@ -179,11 +179,13 @@ class DetDataset:
         
         new_cat_id_name_dict = {}
         new_cat_name_id_dict = {}
+        cat_id_old_new_dict = {}
         curr_cat_id = 0
 
         for k, v in self.cat_id_name_dict.items():
             new_cat_id_name_dict[curr_cat_id] = v
             new_cat_name_id_dict[v] = curr_cat_id
+            cat_id_old_new_dict[k] = curr_cat_id
             curr_cat_id += 1
         
         new_insts_ids = []
@@ -192,10 +194,7 @@ class DetDataset:
         for data in self.data_list:
             new_inst_ids = range(curr_inst_id, curr_inst_id + len(data))
             new_insts_ids.append(new_inst_ids)
-
-            cat_names = [self.cat_id_name_dict[i] for i in data.insts.cat_ids]
-            new_cat_ids = [new_cat_name_id_dict[n] for n in cat_names]
-            data.insts.cat_ids = np.asarray(new_cat_ids)
+            data.update_cat_ids(cat_id_old_new_dict)
         
         self.img_ids = new_img_ids
         self.insts_ids = new_inst_ids
