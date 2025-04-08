@@ -154,6 +154,20 @@ def load_dataset_from_coco_json(
 
     return img_dataset
 
+def load_dataset_from_coco_jsons(
+    coco_ps: List[Union[os.PathLike, str]],
+    img_prefixes: List[Union[os.PathLike, str]],
+) -> DetDataset:
+    datasets: List[DetDataset] = []
+    
+    for coco_p, img_prefix in zip(coco_ps, img_prefixes):
+        ds = load_dataset_from_coco_json(coco_p, img_prefix)
+        datasets.append(ds)
+    
+    dataset = datasets[0].concat(datasets[1:])
+
+    return dataset
+
 
         
     
