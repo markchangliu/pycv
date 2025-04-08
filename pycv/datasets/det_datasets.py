@@ -45,6 +45,77 @@ class DetDataset:
         )
 
         return new_dataset
+    
+    def _concat(self, other_dataset: "DetDataset") -> "DetDataset":
+        new_cat_id_name_dict = {}
+        new_cat_name_id_dict = {}
+        cat_id_old_new_dict_self = {}
+        cat_id_old_new_dict_other = {}
+        curr_cat_id = 0
+
+        for k, v in self.cat_id_name_dict.items():
+            new_cat_id_name_dict[curr_cat_id] = v
+            new_cat_name_id_dict[v] = curr_cat_id
+            cat_id_old_new_dict_self[k] = curr_cat_id
+            curr_cat_id += 1
+        for k, v in other_dataset.cat_id_name_dict.items():
+            new_cat_id_name_dict[curr_cat_id] = v
+            new_cat_name_id_dict[v] = curr_cat_id
+            cat_id_old_new_dict_other[k] = curr_cat_id
+            curr_cat_id += 1
+        
+        new_data_list = []
+        new_img_ids = []
+        new_insts_ids = []
+        curr_img_id = 0
+        curr_inst_id = 0
+
+        for i in range(len(self.img_ids)):
+            data = self.data_list[i]
+
+            data.update_cat_ids(cat_id_old_new_dict_self)
+            new_inst_ids = list(range(curr_inst_id, curr_inst_id + len(data)))
+
+            new_data_list.append(data)
+            new_img_ids.append(curr_img_id)
+            new_insts_ids.append(new_inst_ids)
+
+            curr_img_id += 1
+            curr_inst_id += len(data)
+        
+        for i in range(len(other_dataset.img_ids)):
+            data = other_dataset.data_list[i]
+
+            data.update_cat_ids(cat_id_old_new_dict_other)
+            new_inst_ids = list(range(curr_inst_id, curr_inst_id + len(data)))
+
+            new_data_list.append(data)
+            new_img_ids.append(curr_img_id)
+            new_insts_ids.append(new_inst_ids)
+
+            curr_img_id += 1
+            curr_inst_id += len(data)
+        
+        new_dataset = DetDataset(
+            new_data_list, new_cat_id_name_dict, new_cat_name_id_dict,
+            new_img_ids, new_insts_ids
+        )
+
+        return new_dataset
+    
+    def concat(
+        self, 
+        other_datasets: Union["DetDataset", List["DetDataset"]]
+    ) -> "DetDataset":
+        if isinstance(other_datasets, "DetDataset"):
+            other_datasets = [other_datasets]
+        
+        new_dataset = self
+
+        for ds in other_datasets:
+            new_dataset = new_dataset._concat(ds)
+        
+        return new_dataset
 
     def get_subset_of_cat_ids(
         self, 
