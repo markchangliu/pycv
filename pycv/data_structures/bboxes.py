@@ -5,8 +5,6 @@ from typing import Union, List
 
 import numpy as np
 
-from pycv.data_structures.base import BaseStructure, DataType
-
 
 class BBoxFormat(Enum):
     XYXY: str = "xmin, ymin, xmax, ymax"
@@ -14,12 +12,11 @@ class BBoxFormat(Enum):
 
 
 @dataclass
-class BBoxes(BaseStructure):
+class BBoxes:
     coords: np.ndarray # shape (num_objs, 4)
     format: BBoxFormat
 
     def __post_init__(self) -> None:
-        self.data_type = DataType.BBOXES
         self.coords.astype(np.int_)
         self.validate()
     

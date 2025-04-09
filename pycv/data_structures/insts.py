@@ -4,13 +4,12 @@ from typing import Union, List, Optional
 
 import numpy as np
 
-from pycv.data_structures.base import BaseStructure
 from pycv.data_structures.bboxes import BBoxFormat, BBoxes
 from pycv.data_structures.masks import MaskFormat, Masks
 
 
 @dataclass
-class Insts(BaseStructure):
+class Insts:
     """
     Attrs
     -----

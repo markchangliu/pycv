@@ -5,24 +5,19 @@ from typing import List, Tuple, Union
 import numpy as np
 import pycocotools.mask as pycocomask
 
-from pycv.data_structures.base import DataType, BaseStructure
-
 
 class MaskFormat(Enum):
     POLY: str = "polygon"
     BINARY: str = "binary_mat"
     RLE: str = "rle"
 
-
 @dataclass
-class Masks(BaseStructure):
+class Masks:
     data: Union[List[List[List[float]]], np.ndarray, List[dict]] # (num_objs, ...)
     img_hw: Tuple[int, int]
     format: MaskFormat
 
     def __post_init__(self) -> None:
-        self.data_type = DataType.MASKS
-
         if self.format == MaskFormat.BINARY and isinstance(self.data, np.ndarray):
             self.data.astype(np.uint8)
 

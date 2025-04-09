@@ -5,19 +5,15 @@ from typing import Union, List, Set, Tuple, Callable, Dict
 
 import numpy as np
 
-from pycv.data_structures.base import BaseStructure
 from pycv.data_structures.insts import Insts
 
 
 @dataclass
-class DetData(BaseStructure):
-    img: Union[np.ndarray, str, os.PathLike]
+class DetData:
+    img: Union[str, os.PathLike]
     insts: Insts
     img_tags: Set[str] # (num_img_tags, )
     insts_tags: List[Set[str]] # (num_insts, (num_inst_tags, ))
-
-    def __post_init__(self) -> None:
-        self.validate()
     
     def __len__(self) -> int:
         return len(self.insts)
@@ -91,7 +87,7 @@ class DetData(BaseStructure):
     def tag_img(
         self,
         new_tags: List[str],
-        lambda_funcs: List[Callable[[Union[str, os.PathLike, np.ndarray]], bool]],
+        lambda_funcs: List[Callable[[Union[str, os.PathLike]], bool]],
         retag_flag: bool
     ) -> None:
         img_tags = self.img_tags
@@ -128,11 +124,3 @@ class DetData(BaseStructure):
         old_cat_ids = self.insts.cat_ids
         new_cat_ids = [cat_id_old_new_dict[c] for c in old_cat_ids]
         self.insts.cat_ids = np.asarray(new_cat_ids)
-
-    def validate(self):
-        if isinstance(self.img, str) and self.insts.masks is not None:
-            img_h, img_w = self.img.shape[:2]
-            mask_img_h, mask_img_w = self.insts.masks.img_hw
-            
-            if img_h != mask_img_h or img_w != mask_img_w:
-                raise ValueError("img and insts.mask have different sizes")
