@@ -6,14 +6,18 @@ from typing import Union, List, Set, Tuple, Callable, Dict
 import numpy as np
 
 from pycv.data_structures.insts import Insts
+from pycv.data_structures.img import Img
 
 
 @dataclass
 class DetData:
-    img: Union[str, os.PathLike]
+    img: Img
     insts: Insts
     img_tags: Set[str] # (num_img_tags, )
     insts_tags: List[Set[str]] # (num_insts, (num_inst_tags, ))
+    
+    def __post_init__(self) -> None:
+        self.validate()
     
     def __len__(self) -> int:
         return len(self.insts)
@@ -124,3 +128,9 @@ class DetData:
         old_cat_ids = self.insts.cat_ids
         new_cat_ids = [cat_id_old_new_dict[c] for c in old_cat_ids]
         self.insts.cat_ids = np.asarray(new_cat_ids)
+    
+    def validate(self) -> None:
+        if self.insts.masks is not None:
+            img_h, img_w = self.img.img_h, self.img.img_w
+            mask_h, mask_w = self.insts.masks.img_hw
+            assert mask_h == img_h and mask_w == img_w
