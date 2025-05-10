@@ -1,27 +1,30 @@
 from collections.abc import Sequence
-from typing import Literal, Union, overload
+from typing import Literal, Union
 
 import numpy as np
+
+from pycv.structures.bboxes.convert import convert_bboxes
+from pycv.structures.bboxes.concat import concat_bboxes
 
 
 class BBoxes:
     """
     Attrs:
-    - `self.format`: `Literal["XYXY", "XYWH"]`,
+    - `self.data_format`: `Literal["XYXY", "XYWH"]`,
     - `self.coords`: `np.ndarray`, `np.int_`, shape `(num, 4)`
     """
 
     def __init__(
         self,
-        format: Literal["XYXY", "XYWH"],
+        data_format: Literal["XYXY", "XYWH"],
         coords: np.ndarray 
     ) -> None:
-        assert format == "XYXY" or format == "XYWH"
+        assert data_format == "XYXY" or data_format == "XYWH"
         assert isinstance(coords, np.ndarray)
         assert len(coords.shape) == 2
         assert coords.shape[1] == 4
 
-        self.format: Literal["XYXY", "XYWH"] = format
+        self.data_format: Literal["XYXY", "XYWH"] = data_format
         self.coords = coords.astype(np.int_)
     
     def __len__(self) -> int:
@@ -35,33 +38,23 @@ class BBoxes:
             item = [item]
         
         coords = self.coords[item, :]
-        new_bboxes = BBoxes(coords, self.format)
+        new_bboxes = BBoxes(coords, self.data_format)
         return new_bboxes
-    
-    @overload
-    def concat(self, other: "BBoxes") -> None: ...
-
-    @overload
-    def concat(self, other: Sequence["BBoxes"]) -> None: ...
 
     def concat(
         self, 
         other: Union["BBoxes", Sequence["BBoxes"]]
     ) -> None:
         if isinstance(other, BBoxes):
-            other.convert_format(self.format)
-            new_coords = np.concat([self.coords, other.coords], axis=0)
+            other = [other]
         
-        elif isinstance(other, Sequence):
-            new_coords = []
-            for b in other:
-                b.convert_format(self.format)
-                new_coords.append(b)
-            
-            new_coords = np.concat(new_coords, axis=0)
+        coords_list = [self.coords]
+
+        for b in other:
+            b.convert_format(self.data_format)
+            coords_list.append(b.coords)
         
-        else:
-            raise ValueError("`other` wrong type")
+        new_coords = concat_bboxes(*coords_list)
         
         self.coords = new_coords
 
@@ -69,20 +62,5 @@ class BBoxes:
         self, 
         dst_format: Literal["XYXY", "XYWH"],
     ) -> None:
-        if self.format == dst_format:
-            return
-        
-        if self.format == "XYXY" and dst_format == "XYWH":
-            ws = self.coords[:, 2] - self.coords[:, 0]
-            hs = self.coords[:, 3] - self.coords[:, 1]
-
-            self.coords[:, 2] = ws
-            self.coords[:, 3] = hs
-        
-        if self.format == "XYWH" and dst_format == "XYWH":
-            ws = self.coords[:, 2]
-            hs = self.coords[:, 3]
-            
-            self.coords[:, 2] = self.coords[:, 0] + ws
-            self.coords[:, 3] = self.coords[:, 1] + hs
+        self.coords = convert_bboxes(self.coords, self.data_format, dst_format)
 
