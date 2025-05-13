@@ -31,15 +31,15 @@ class DetData:
     
     def __getitem__(
         self, 
-        item: Union[int, List[int], slice, np.ndarray]
+        indice: Union[int, List[int], slice, np.ndarray]
     ) -> "DetData":
-        if isinstance(item, int):
-            item = [item]
-        if isinstance(item, slice):
-            item = list(range(len(self.insts))[item])
+        if isinstance(indice, int):
+            indice = [indice]
+        if isinstance(indice, slice):
+            indice = list(range(len(self.insts))[indice])
         
-        new_insts = self.insts[item]
-        new_insts_tags = [self.insts_tags[i] for i in item]
+        new_insts = self.insts[indice]
+        new_insts_tags = [self.insts_tags[i] for i in indice]
         new_data = DetData(self.img, new_insts, new_insts_tags)
 
         return new_data
