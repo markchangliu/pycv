@@ -92,7 +92,7 @@ class Masks:
         
         self.data = concat_masks(data_list)
 
-    def convert_data_format(
+    def convert_format(
         self, 
         dst_format: Literal["polygon", "binary", "rle"]
     ) -> None:
