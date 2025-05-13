@@ -1,9 +1,9 @@
-from typing import Union, List, Optional, Sequence
+from typing import Union, List, Optional
 
 import numpy as np
 
-from pycv.structures.bboxes.base import BBoxes
-from pycv.structures.masks.base import Masks
+from pycv.structures.bboxes import BBoxes
+from pycv.structures.masks import Masks
 
 
 class Insts:
@@ -14,9 +14,6 @@ class Insts:
     - `self.cat_ids`: `np.ndarray`, `np.int_`, `(num_insts, )`
     - `self.bboxes`: `BBoxes`, `(num_insts, 4)`, `XYXY`
     - `self.masks`: `Optional[Masks]`, `(num_insts, ...)`, `binary`
-    - `self.tags`: `List[Set[str]]`, `(num_insts, (num_tags, ))`
-    - `self.global_ids`: `np.ndarray`, `np.int_`, `(num_insts, )`
-    - `self.local_ids`: `np.ndarray`, `np.int_`, `(num_insts, )`
     """
 
     def __init__(
@@ -25,12 +22,8 @@ class Insts:
         cat_ids: np.ndarray,
         bboxes: BBoxes,
         masks: Optional[Masks],
-        tags: List[Sequence[str]],
-        global_ids: np.ndarray
     ) -> None:
-        assert len(confs) == len(cat_ids) == len(bboxes) == \
-            len(tags) == len(global_ids)
-        
+        assert len(confs) == len(cat_ids) == len(bboxes)
         assert len(confs.shape) == 1 and len(cat_ids.shape) == 1
         
         if masks is not None:
@@ -44,9 +37,6 @@ class Insts:
         self.cat_ids = cat_ids.astype(np.int_)
         self.bboxes = bboxes
         self.masks = masks
-        self.tags = [set(ts) for ts in tags]
-        self.global_ids = global_ids.astype(np.int_)
-        self.local_ids = np.arange(len(confs), dtype=np.int_)
     
     def __len__(self) -> int:
         return len(self.confs)
@@ -85,7 +75,7 @@ class Insts:
         for i in other_insts:
             new_confs += i.confs
             new_cat_ids += i.cat_ids
-            new_bboxes = i.bboxes
+            other_bboxes += i.bboxes
             
             if self.masks is not None:
                 new_masks += i.masks
@@ -96,10 +86,5 @@ class Insts:
         
         if self.masks is not None:
             self.masks = self.masks.concat(other_masks)
-    
-    def retrieve_by_global_ids(
-        self,
-        target_global_ids: List[int]
-    ) -> None:
         
         
