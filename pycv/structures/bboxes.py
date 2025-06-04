@@ -1,14 +1,19 @@
-from collections.abc import Sequence
-from typing import Literal, Union
+from typing import Literal, Union, List
 
 import numpy as np
 
 
 class BBoxes:
     """
-    Attrs:
-    - `self.data_format`: `Literal["XYXY", "XYWH"]`,
-    - `self.coords`: `np.ndarray`, `np.int_`, shape `(num, 4)`
+    Attrs
+    -----
+    - `data_format`: `Literal["XYXY", "XYWH"]`,
+    - `coords`: `np.ndarray`, `np.int32`, shape `(num, 4)`
+
+    Methods
+    -----
+    - `concat`
+    - `convert_format`
     """
 
     def __init__(
@@ -22,14 +27,14 @@ class BBoxes:
         assert coords.shape[1] == 4
 
         self.data_format: Literal["XYXY", "XYWH"] = data_format
-        self.coords = coords.astype(np.int_)
+        self.coords = coords.astype(np.int32)
     
     def __len__(self) -> int:
         return len(self.coords)
     
     def __getitem__(
         self,
-        item: Union[int, Sequence[int], slice, np.ndarray]
+        item: Union[int, List[int], slice, np.ndarray]
     ) -> "BBoxes":
         if isinstance(item, int):
             item = [item]
@@ -40,7 +45,7 @@ class BBoxes:
 
     def concat(
         self, 
-        other: Union["BBoxes", Sequence["BBoxes"]]
+        other: Union["BBoxes", List["BBoxes"]]
     ) -> None:
         if isinstance(other, BBoxes):
             other = [other]

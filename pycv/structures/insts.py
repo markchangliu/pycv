@@ -10,10 +10,14 @@ class Insts:
     """
     Attrs
     -----
-    - `self.confs`: `np.ndarray`, `np.float64`, `(num_insts, )`
-    - `self.cat_ids`: `np.ndarray`, `np.int_`, `(num_insts, )`
-    - `self.bboxes`: `BBoxes`, `(num_insts, 4)`, `XYXY`
-    - `self.masks`: `Optional[Masks]`, `(num_insts, ...)`, `binary`
+    - `confs`: `np.ndarray`, `np.float32`, `(num_insts, )`
+    - `cat_ids`: `np.ndarray`, `np.int32`, `(num_insts, )`
+    - `bboxes`: `BBoxes`, `(num_insts, 4)`, `XYXY`
+    - `masks`: `Optional[Masks]`, `(num_insts, ...)`, `binary`
+
+    Methods
+    -----
+    - `concat`
     """
 
     def __init__(
@@ -33,8 +37,8 @@ class Insts:
         else:
             bboxes.convert_format("XYXY")
 
-        self.confs = confs.astype(np.float64)
-        self.cat_ids = cat_ids.astype(np.int_)
+        self.confs = confs.astype(np.float32)
+        self.cat_ids = cat_ids.astype(np.int32)
         self.bboxes = bboxes
         self.masks = masks
     

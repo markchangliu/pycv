@@ -7,13 +7,19 @@ import pycocotools.mask as pycocomask
 
 class Masks:
     """
-    Attrs:
-    - `self.data`: 
+    Attrs
+    -----
+    - `data`: 
         - `polygons`: `List[List[List[int]]]`, shape `(num_objs, (num_polys, (num_points * 2, )))`
         - `binarys`: `np.ndarray`, `np.uint8`, shape `(num_objs, img_h, img_w)`
         - `rles`: `List[dict]`, shape `(num_objs, )`
     - `img_hw`: `Tuple[int, int]`
     - `data_format`: `Literal["polygon", "binary", "rle"]`
+
+    Methods
+    -----
+    - `concat`
+    - `convert`
     """
     def __init__(
         self,

@@ -1,45 +1,67 @@
+import os
 from typing import List, Dict, Union
 
 import numpy as np
 
-from pycv.structures.data import DetData
+from pycv.structures.insts import Insts
 
 
 class DetDataset:
     """
-    Attrs:
-    - data_list: List[DetData] # (num_imgs, )
-    - cat_id_name_dict: Dict[int, str] # (num_cats, )
-    - cat_name_id_dict: Dict[str, int] # (num_cats, )
-    - img_ids: List[int] # (num_imgs, )
-    - insts_ids: List[List[int]] # (num_imgs, (num_insts_per_img, ))
+    Attrs
+    -----
+    - `img_ids`: `np.ndarray`, `int`, `(num_imgs, )`
+    - `img_tags`: `List[List[str]]`, `(num_imgs, (num_tags, ))`
+    - `img_ps`: `np.ndarray`, `str`, `(num_imgs, )`
+    - `inst_ids`: `np.ndarray`, `int`, `(num_insts, )`
+    - `inst_img_ids`: `np.ndarray`, `int`, `(num_insts, )`
+    - `inst_tags`: `List[List[str]]`, `(num_insts, (num_tags, ))`
+    - `insts`: List[Insts], `(num_insts, (1, ))`
+    - `cat_id_name_dict`: `Dict[int, str]`, `(num_cats, )`
+    - `cat_name_id_dict`: `Dict[str, int]`, `(num_cats, )`
+
+    Methods
+    -----
+    - `concat`
+    - `convert_bboxes_format`
+    - `convert_masks_format`
+    - `get_data_by_img_ids`
+    - `get_data_by_inst_ids`
+    - `get_data_by_cats`
+    - `get_data_by_img_tags`
+    - `get_data_by_inst_tags`
     """
+
     def __init__(
         self,
-        data_list: List[DetData],
-        cat_id_name_dict: Dict[int, str],
+        img_ps: List[str],
         img_ids: Union[None, List[int]],
-        insts_ids: Union[None, List[List[int]]]
+        img_tags: Union[None, List[List[str]]],
+        cat_id_name_dict: Dict[int, str],
+        img_insts: Union[List[Insts]],
+        img_insts_ids: Union[None, List[int]],
+        img_insts_tags: Union[None, List[List[List[str]]]]
     ) -> None:
-        assert len(self.data_list) == len(self.img_ids) \
-            == len(self.insts_ids)
-        
+        assert len(imgs) == len(insts)
+
         if img_ids is not None:
-            assert len(img_ids) == len(data_list)
+            assert len(imgs) == len(img_ids)
         if insts_ids is not None:
-            assert len(insts_ids) == len(data_list)
+            assert len(imgs) == len(insts_ids)
+        if img_tags is not None:
+            assert len(imgs) == len(img_tags)
+        if insts_tags is not None:
+            assert len(imgs) == len(insts_tags)
         
-        self.data_list = data_list
+        self.imgs = imgs
+        self.insts = insts
         self.cat_id_name_dict = cat_id_name_dict
-        self.cat_name_id_dict = {v:k for k, v in cat_id_name_dict.indices()}
-        self.img_ids = []
-        self.insts_ids = []
+        self.cat_name_id_dict = {v:k for k, v in cat_id_name_dict.items()}
         
-        if img_ids is None or insts_ids is None:
-            self.create_ids()
-        else:
-            self.img_ids = img_ids
-            self.insts_ids = insts_ids
+        self.img_ids = img_ids if img_ids is not None else []
+        self.insts_ids = insts_ids if insts_ids is not None else []
+        
+
     
     def __len__(self) -> int:
         return len(self.data_list)
