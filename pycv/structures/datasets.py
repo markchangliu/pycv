@@ -1,5 +1,5 @@
 import os
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Literal
 
 import numpy as np
 
@@ -25,8 +25,8 @@ class DetDataset:
     Methods
     -----
     - `concat`
-    - `convert_bboxes_format`
-    - `convert_masks_format`
+    - `convert_bbox_format`
+    - `convert_mask_format`
     - `get_data_by_img_ids`
     - `get_data_by_inst_ids`
     - `get_data_by_cats`
@@ -35,6 +35,40 @@ class DetDataset:
     """
 
     def __init__(
-        self
+        self,
+        img_insts_ids: Dict[int, List[int]],
+        img_tags: Dict[int, List[str]],
+        img_ps: Dict[int, str],
+        inst_img_ids: Dict[int, int],
+        inst_tags: Dict[int, List[str]],
+        insts: Dict[str, Insts],
+        cat_name_id_dict: Dict[str, int]
     ) -> None:
-        pass
+        assert len(img_insts_ids) == len(img_tags) == len(img_ps)
+        assert len(inst_img_ids) == len(inst_tags) == len(inst_tags)
+        
+        self.img_insts_ids = img_insts_ids
+        self.img_tags = img_tags
+        self.img_ps = img_ps
+        self.inst_img_ids = inst_img_ids
+        self.inst_tags = inst_tags
+        self.insts = insts
+        self.cat_name_id_dict = cat_name_id_dict
+        self.cat_id_name_dict = {v: k for k, v in cat_name_id_dict.items()}
+    
+    def convert_bbox_format(
+        self,
+        dst_format: Literal["XYXY", "XYWH"]
+    ) -> None:
+        for inst in self.insts.values():
+            inst.bboxes.convert_format(dst_format)
+    
+    def convert_mask_format(
+        self,
+        dst_format: Literal["polygon", "binary", "rle"]
+    ) -> None:
+        for inst in self.insts.values():
+            if inst.masks is not None:
+                inst.masks.convert_format(dst_format)
+    
+def concat_datasets()
