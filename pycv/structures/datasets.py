@@ -21,17 +21,26 @@ class DetDataset:
     - `insts`: `Dict[int, Insts]`, `(num_insts, (1, ))`, `{inst_id: inst}`
     - `cat_id_name_dict`: `Dict[int, str]`, `(num_cats, )`, `{cat_id: cat_name}`
     - `cat_name_id_dict`: `Dict[str, int]`, `(num_cats, )`, `{cat_name: cat_id}`
+    - `img_tag_img_ids`: `Dict[str, List[int]]`, `(num_img_tags, (num_imgs_per_tag))`,
+    `{img_tag: [img_id, ...]}`
+    - `inst_tag_inst_ids`: `Dict[str, List[int]]`, `(num_inst_tags, (num_insts_per_tag))`,
+    `{inst_tag: [inst_id, ...]}`
+    - `cat_id_img_ids`: `Dict[int, List[int]]`, `(num_cats, (num_imgs_per_cat))`,
+    `{cat_id: [img_id, ...]}`
+    - `cat_id_inst_ids`: `Dict[int, List[int]]`, `(num_cats, (num_insts_per_cat))`,
+    `{cat_id: [inst_id, ...]}`
 
     Methods
     -----
     - `concat`
     - `convert_bbox_format`
     - `convert_mask_format`
-    - `get_data_by_img_ids`
-    - `get_data_by_inst_ids`
-    - `get_data_by_cats`
-    - `get_data_by_img_tags`
-    - `get_data_by_inst_tags`
+    - `get_subset_by_img_ids`
+    - `get_subset_by_inst_ids`
+    - `get_subset_by_cat_ids`
+    - `get_subset_by_cat_names`
+    - `get_subset_by_img_tags`
+    - `get_subset_by_inst_tags`
     """
 
     def __init__(
