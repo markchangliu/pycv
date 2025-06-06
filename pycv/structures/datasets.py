@@ -74,10 +74,18 @@ class DetDataset:
     def concat(
         self,
         *datasets: "DetDataset"
-    ) -> "DetDataset":
+    ) -> None:
         all_datasets = [self] + datasets
-        new_datasets = concat_datasets(*all_datasets)
-        return new_datasets
+        new_dataset = concat_datasets(*all_datasets)
+        
+        self.cat_id_name_dict = new_dataset.cat_id_name_dict
+        self.cat_name_id_dict = new_dataset.cat_name_id_dict
+        self.img_insts_ids = new_dataset.img_insts_ids
+        self.img_ps = new_dataset.img_ps
+        self.img_tags = new_dataset.img_tags
+        self.inst_img_ids = new_dataset.inst_img_ids
+        self.inst_tags = new_dataset.inst_tags
+        self.insts = new_dataset.insts
 
 
 def concat_datasets(*datasets: DetDataset) -> DetDataset:
