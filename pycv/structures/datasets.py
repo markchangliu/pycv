@@ -8,19 +8,22 @@ from pycv.structures.insts import Insts
 
 class DetDataset:
     """
-    Attrs
+    Attrs (data)
     -----
-    - `img_insts_ids`: `Dict[int, List[int]]`, `(num_imgs, (num_insts_per_img, ))`,
-    `{img_id: [inst_id, ...]}`
     - `img_tags`: `Dict[int, List[str]]`, `(num_imgs, (num_img_tags, ))`,
     `{img_id: [img_tag, ...]}`
     - `img_ps`: `Dict[int, str]`, `(num_imgs, )`, `{img_id: img_p}`
-    - `inst_img_ids`: `Dict[int, int]`, `(num_insts, )`, `{inst_id: img_id}`
     - `inst_tags`: `Dict[int, List[str]]`, `(num_insts, (num_inst_tags, ))`,
     `{inst_id: [inst_tag, ...]}`
     - `insts`: `Dict[int, Insts]`, `(num_insts, (1, ))`, `{inst_id: inst}`
     - `cat_id_name_dict`: `Dict[int, str]`, `(num_cats, )`, `{cat_id: cat_name}`
     - `cat_name_id_dict`: `Dict[str, int]`, `(num_cats, )`, `{cat_name: cat_id}`
+
+    Attrs (index)
+    -----
+    - `img_insts_ids`: `Dict[int, List[int]]`, `(num_imgs, (num_insts_per_img, ))`,
+    `{img_id: [inst_id, ...]}`
+    - `inst_img_ids`: `Dict[int, int]`, `(num_insts, )`, `{inst_id: img_id}`
     - `img_tag_img_ids`: `Dict[str, List[int]]`, `(num_img_tags, (num_imgs_per_tag))`,
     `{img_tag: [img_id, ...]}`
     - `inst_tag_inst_ids`: `Dict[str, List[int]]`, `(num_inst_tags, (num_insts_per_tag))`,
@@ -56,14 +59,43 @@ class DetDataset:
         assert len(img_insts_ids) == len(img_tags) == len(img_ps)
         assert len(inst_img_ids) == len(inst_tags) == len(inst_tags)
         
-        self.img_insts_ids = img_insts_ids
         self.img_tags = img_tags
         self.img_ps = img_ps
-        self.inst_img_ids = inst_img_ids
         self.inst_tags = inst_tags
         self.insts = insts
         self.cat_name_id_dict = cat_name_id_dict
         self.cat_id_name_dict = {v: k for k, v in cat_name_id_dict.items()}
+
+        # build index
+        self.img_insts_ids = img_insts_ids
+        self.inst_img_ids = inst_img_ids
+        self.img_tag_img_ids: Dict[str, List[int]] = {}
+        self.inst_tag_inst_ids: Dict[str, List[int]] = {}
+        self.cat_id_img_ids: Dict[int, List[int]] = {}
+        self.cat_id_inst_ids: Dict[int, List[int]] = {}
+
+        for img_id, img_tags in self.img_tags.items():
+            for t in img_tags:
+                if t in self.img_tag_img_ids.keys():
+                    self.img_tag_img_ids[t].append(img_id)
+                else:
+                    self.img_tag_img_ids[t] = [img_id]
+        
+        for inst_id, inst_tags in self.inst_tags.items():
+            for t in inst_tags:
+                if t in self.inst_tag_inst_ids.keys():
+                    self.inst_tag_inst_ids[t].append(inst_id)
+                else:
+                    self.inst_tag_inst_ids[t] = [inst_id]
+        
+        for inst_id, inst in self.insts.items():
+            cat_id = inst.cat_ids.item()
+            img_id = self.inst_img_ids[inst_id]
+
+            if cat_id in self.cat_id_img_ids.keys():
+                self.cat_id_img_ids[cat_id].append(img_id)
+            else:
+                self.cat_id_img_ids[cat_id] = [img_id]
     
     def convert_bbox_format(
         self,
@@ -95,6 +127,18 @@ class DetDataset:
         self.inst_img_ids = new_dataset.inst_img_ids
         self.inst_tags = new_dataset.inst_tags
         self.insts = new_dataset.insts
+    
+    def get_subset_by_img_ids(
+        self,
+        *img_ids: int,
+    ) -> "DetDataset":
+        new_img_ids = img_ids
+        new_inst_img_ids = {k: v for k, v in self.inst_img_ids if v in new_img_ids}
+        new_img_insts_ids = {k: v for k, v in self.img_insts_ids if k in new_img_ids}
+
+        new_img_tag_img_ids = {}
+        for k, v in self.img_tag_img_ids
+
 
 
 def concat_datasets(*datasets: DetDataset) -> DetDataset:
